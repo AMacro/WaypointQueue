@@ -1,0 +1,10 @@
+{
+    "Id": "WaypointQueue",
+    "DisplayName": "Waypoint Queue",
+    "Author": "PrinceOfPluto",
+    "Version": "1.0.0",
+    "ManagerVersion": "0.31.0",
+    "GameVersion": "1.0.0",
+    "AssemblyName": "WaypointQueue.dll",
+    "EntryMethod": "WaypointQueue.UUM.Loader.Load"
+}
