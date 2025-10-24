@@ -1,0 +1,47 @@
+﻿using Model;
+using System;
+using System.Collections.Generic;
+using System.Text.Json.Serialization;
+using WaypointQueue.UUM;
+
+namespace WaypointQueue
+{
+    public class LocoWaypointState
+    {
+        [JsonInclude]
+        public string LocomotiveId { get; private set; }
+        public List<ManagedWaypoint> Waypoints { get; set; }
+        public ManagedWaypoint UnresolvedWaypoint { get; set; }
+
+        [JsonIgnore]
+        public Car Locomotive { get; private set; }
+
+        public void Load()
+        {
+            if (TrainController.Shared.TryGetCarForId(LocomotiveId, out Car locomotive))
+            {
+                Loader.LogDebug($"Loaded locomotive {locomotive.Ident} for LocoWaypointState");
+                Locomotive = locomotive;
+            }
+            else
+            {
+                throw new InvalidOperationException($"Could not find car for {LocomotiveId}");
+            }
+        }
+
+        public LocoWaypointState(Car loco)
+        {
+            LocomotiveId = loco.id;
+            Locomotive = loco;
+            Waypoints = new List<ManagedWaypoint>();
+        }
+
+        [JsonConstructor]
+        public LocoWaypointState(string locomotiveId, List<ManagedWaypoint> waypoints, ManagedWaypoint unresolvedWaypoint)
+        {
+            LocomotiveId = locomotiveId;
+            Waypoints = waypoints;
+            UnresolvedWaypoint = unresolvedWaypoint;
+        }
+    }
+}

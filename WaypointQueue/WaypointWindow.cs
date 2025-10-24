@@ -76,7 +76,7 @@ namespace WaypointQueue
                     return;
                 }
 
-                List<AdvancedWaypoint> waypointList = WaypointQueueController.Shared.GetWaypointList(selectedLocomotive);
+                List<ManagedWaypoint> waypointList = WaypointQueueController.Shared.GetWaypointList(selectedLocomotive);
 
                 if (waypointList == null || waypointList.Count == 0)
                 {
@@ -94,13 +94,13 @@ namespace WaypointQueue
                 builder.Spacer(8f);
                 for (int i = 0; i < waypointList.Count; i++)
                 {
-                    AdvancedWaypoint waypoint = waypointList[i];
+                    ManagedWaypoint waypoint = waypointList[i];
                     BuildWaypointSection(waypoint, i + 1, builder);
                 }
             });
         }
 
-        private void BuildWaypointSection(AdvancedWaypoint waypoint, int number, UIPanelBuilder builder)
+        private void BuildWaypointSection(ManagedWaypoint waypoint, int number, UIPanelBuilder builder)
         {
             builder.HStack(delegate (UIPanelBuilder builder)
             {
@@ -171,7 +171,7 @@ namespace WaypointQueue
             }
         }
 
-        private void JumpCameraToWaypoint(AdvancedWaypoint waypoint)
+        private void JumpCameraToWaypoint(ManagedWaypoint waypoint)
         {
             CameraSelector.shared.JumpToPoint(waypoint.Location.GetPosition(), waypoint.Location.GetRotation(), CameraSelector.CameraIdentifier.Strategy);
         }
