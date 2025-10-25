@@ -1,6 +1,7 @@
 ﻿using Model;
 using System.Collections;
 using System.Collections.Generic;
+using TMPro;
 using UI.Builder;
 using UI.Common;
 using UnityEngine;
@@ -130,10 +131,23 @@ namespace WaypointQueue
                 {
                     builder.AddLabel($"Showing current waypoints for locomotive {selectedLocomotive.Ident}");
                     builder.Spacer();
-                    builder.AddButtonCompact("Clear all", () => WaypointQueueController.Shared.ClearWaypointState(selectedLocomotive));
+                    builder.AddButtonCompact("Delete all", () =>
+                    {
+                        ModalAlertController.Present($"Delete all waypoints for {selectedLocomotive.Ident}?", "This cannot be undone.", new (bool, string)[2]
+                {
+                    (true, "Delete"),
+                    (false, "Cancel")
+                }, delegate (bool b)
+                {
+                    if (b)
+                    {
+                        WaypointQueueController.Shared.ClearWaypointState(selectedLocomotive);
+                    }
+                });
+                    });
                 });
 
-                builder.Spacer(8f);
+                builder.Spacer(20f);
                 for (int i = 0; i < waypointList.Count; i++)
                 {
                     ManagedWaypoint waypoint = waypointList[i];
@@ -144,6 +158,7 @@ namespace WaypointQueue
 
         private void BuildWaypointSection(ManagedWaypoint waypoint, int number, UIPanelBuilder builder)
         {
+            builder.Spacer(10f);
             builder.HStack(delegate (UIPanelBuilder builder)
             {
                 builder.AddLabel($"Waypoint {number}");
@@ -183,18 +198,21 @@ namespace WaypointQueue
                     string pluralCars = waypoint.NumberOfCarsToUncouple == 1 ? "car" : "cars";
                     builder.AddField($"Uncouple ", builder.HStack(delegate (UIPanelBuilder field)
                     {
-                        field.AddLabel($"{waypoint.NumberOfCarsToUncouple} {pluralCars}");
+                        field.AddLabel($"{waypoint.NumberOfCarsToUncouple} {pluralCars}")
+                            .TextWrap(TextOverflowModes.Overflow, TextWrappingModes.NoWrap)
+                            .Width(120f)
+                            .Height(30f);
+                        field.AddButton("-", delegate
+                        {
+                            waypoint.NumberOfCarsToUncouple -= 1;
+                            WaypointQueueController.Shared.UpdateWaypoint(waypoint);
+                        }).Disable(waypoint.NumberOfCarsToUncouple <= 0);
+                        field.AddButton("+", delegate
+                        {
+                            waypoint.NumberOfCarsToUncouple += 1;
+                            WaypointQueueController.Shared.UpdateWaypoint(waypoint);
+                        });
                     }));
-                    builder.AddButtonCompact("-", delegate
-                    {
-                        waypoint.NumberOfCarsToUncouple -= 1;
-                        WaypointQueueController.Shared.UpdateWaypoint(waypoint);
-                    }).Disable(waypoint.NumberOfCarsToUncouple <= 0);
-                    builder.AddButtonCompact("+", delegate
-                    {
-                        waypoint.NumberOfCarsToUncouple += 1;
-                        WaypointQueueController.Shared.UpdateWaypoint(waypoint);
-                    });
                 });
 
                 if (waypoint.IsUncoupling)
