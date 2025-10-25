@@ -1,4 +1,5 @@
 ﻿using Model;
+using System.Collections;
 using System.Collections.Generic;
 using UI.Builder;
 using UI.Common;
@@ -21,6 +22,9 @@ namespace WaypointQueue
 
         public static WaypointWindow Shared => WindowManager.Shared.GetWindow<WaypointWindow>();
 
+        private string _selectedLocomotiveId;
+        private Coroutine _coroutine;
+
         private void OnEnable()
         {
             WaypointQueueController.OnWaypointsUpdated += OnWaypointsUpdated;
@@ -37,6 +41,25 @@ namespace WaypointQueue
             Rebuild();
         }
 
+        private IEnumerator Ticker()
+        {
+            WaitForSeconds t = new WaitForSeconds(0.2f);
+            while (true)
+            {
+                yield return t;
+                Tick();
+            }
+        }
+
+        private void Tick()
+        {
+            if (TrainController.Shared.SelectedLocomotive.id != _selectedLocomotiveId && Shared.Window.IsShown)
+            {
+                Loader.LogDebug($"Selected locomotive changed, rebuilding waypoint window");
+                Rebuild();
+            }
+        }
+
         public void Show()
         {
             Loader.LogDebug($"Rebuilding and showing waypoint panel");
@@ -44,6 +67,24 @@ namespace WaypointQueue
             var rect = GetComponent<RectTransform>();
             rect.position = new Vector2((float)Screen.width, (float)Screen.height - 40);
             Shared.Window.ShowWindow();
+
+            if (_coroutine == null)
+            {
+                Loader.LogDebug($"Starting waypoint window coroutine");
+                _coroutine = StartCoroutine(Ticker());
+            }
+        }
+
+        public void Hide()
+        {
+            Shared.Show();
+
+            if (_coroutine != null)
+            {
+                Loader.LogDebug($"Stopping waypoint window coroutine");
+                StopCoroutine(_coroutine);
+                _coroutine = null;
+            }
         }
 
         public static void Toggle()
@@ -52,7 +93,7 @@ namespace WaypointQueue
             if (Shared.Window.IsShown)
             {
                 Loader.LogDebug($"Toggling waypoint panel closed");
-                Shared.Window.CloseWindow();
+                Shared.Hide();
             }
             else
             {
@@ -70,6 +111,7 @@ namespace WaypointQueue
             builder.VScrollView(delegate (UIPanelBuilder builder)
             {
                 BaseLocomotive selectedLocomotive = TrainController.Shared.SelectedLocomotive;
+                _selectedLocomotiveId = selectedLocomotive?.id;
                 if (selectedLocomotive == null)
                 {
                     builder.AddLabel("No locomotive is currently selected").HorizontalTextAlignment(TMPro.HorizontalAlignmentOptions.Center);
