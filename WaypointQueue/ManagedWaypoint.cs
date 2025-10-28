@@ -8,6 +8,11 @@ namespace WaypointQueue
 {
     public class ManagedWaypoint
     {
+        public enum PostCoupleCutType
+        {
+            Take,
+            Leave
+        }
         [JsonInclude]
         public string Id { get; private set; }
 
@@ -40,7 +45,7 @@ namespace WaypointQueue
         {
             get
             {
-                return NumberOfCarsToUncouple > 0;
+                return !IsCoupling && NumberOfCarsToCut > 0;
             }
         }
 
@@ -49,8 +54,9 @@ namespace WaypointQueue
         public bool ApplyHandbrakesOnUncouple { get; set; }
         public bool BleedAirOnUncouple { get; set; }
 
-        public int NumberOfCarsToUncouple { get; set; }
-        public bool UncoupleNearestToWaypoint { get; set; }
+        public int NumberOfCarsToCut { get; set; }
+        public bool CountUncoupledFromNearestToWaypoint { get; set; }
+        public PostCoupleCutType TakeOrLeaveCut { get; set; }
 
         public void Load()
         {
@@ -68,7 +74,7 @@ namespace WaypointQueue
             Loader.LogDebug($"Loaded location {Location} for {locomotive.Ident} ManagedWaypoint");
         }
 
-        public ManagedWaypoint(Car locomotive, Location location, string coupleToCarId = "", bool connectAirOnCouple = true, bool releaseHandbrakesOnCouple = true, bool applyHandbrakeOnUncouple = true, int numberOfCarsToUncouple = 0, bool uncoupleNearestToWaypoint = true, bool bleedAirOnUncouple = true)
+        public ManagedWaypoint(Car locomotive, Location location, string coupleToCarId = "", bool connectAirOnCouple = true, bool releaseHandbrakesOnCouple = true, bool applyHandbrakeOnUncouple = true, int numberOfCarsToCut = 0, bool countUncoupledFromNearestToWaypoint = true, bool bleedAirOnUncouple = true, PostCoupleCutType takeOrLeaveCut = PostCoupleCutType.Take)
         {
             Id = Guid.NewGuid().ToString();
             Locomotive = locomotive;
@@ -79,13 +85,14 @@ namespace WaypointQueue
             ConnectAirOnCouple = connectAirOnCouple;
             ReleaseHandbrakesOnCouple = releaseHandbrakesOnCouple;
             ApplyHandbrakesOnUncouple = applyHandbrakeOnUncouple;
-            NumberOfCarsToUncouple = numberOfCarsToUncouple;
-            UncoupleNearestToWaypoint = uncoupleNearestToWaypoint;
+            NumberOfCarsToCut = numberOfCarsToCut;
+            CountUncoupledFromNearestToWaypoint = countUncoupledFromNearestToWaypoint;
             BleedAirOnUncouple = bleedAirOnUncouple;
+            TakeOrLeaveCut = takeOrLeaveCut;
         }
 
         [JsonConstructor]
-        public ManagedWaypoint(string id, string locomotiveId, string locationString, string coupleToCarId, bool connectAirOnCouple, bool releaseHandbrakesOnCouple, bool applyHandbrakesOnUncouple, bool bleedAirOnUncouple, int numberOfCarsToUncouple, bool uncoupleNearestToWaypoint)
+        public ManagedWaypoint(string id, string locomotiveId, string locationString, string coupleToCarId, bool connectAirOnCouple, bool releaseHandbrakesOnCouple, bool applyHandbrakesOnUncouple, bool bleedAirOnUncouple, int numberOfCarsToCut, bool countUncoupledFromNearestToWaypoint, PostCoupleCutType takeOrLeaveCut)
         {
             Id = id;
             LocomotiveId = locomotiveId;
@@ -95,8 +102,9 @@ namespace WaypointQueue
             ReleaseHandbrakesOnCouple = releaseHandbrakesOnCouple;
             ApplyHandbrakesOnUncouple = applyHandbrakesOnUncouple;
             BleedAirOnUncouple = bleedAirOnUncouple;
-            NumberOfCarsToUncouple = numberOfCarsToUncouple;
-            UncoupleNearestToWaypoint = uncoupleNearestToWaypoint;
+            NumberOfCarsToCut = numberOfCarsToCut;
+            CountUncoupledFromNearestToWaypoint = countUncoupledFromNearestToWaypoint;
+            TakeOrLeaveCut = takeOrLeaveCut;
         }
     }
 }

@@ -191,30 +191,42 @@ namespace WaypointQueue
                     waypoint.ReleaseHandbrakesOnCouple = value;
                     WaypointQueueController.Shared.UpdateWaypoint(waypoint);
                 }));
+
+                builder.AddField($"Cut after coupling", builder.HStack(delegate (UIPanelBuilder field)
+                {
+                    AddCarCutButtons(waypoint, field);
+                }));
+
+                if (waypoint.NumberOfCarsToCut > 0)
+                {
+                    builder.AddField($"Cut type", builder.HStack(delegate (UIPanelBuilder field)
+                    {
+                        field.AddLabel(waypoint.TakeOrLeaveCut == ManagedWaypoint.PostCoupleCutType.Take ? "Take" : "Leave");
+                        field.AddButtonCompact("Swap", () =>
+                        {
+                            waypoint.TakeOrLeaveCut = waypoint.TakeOrLeaveCut == ManagedWaypoint.PostCoupleCutType.Take ? ManagedWaypoint.PostCoupleCutType.Leave : ManagedWaypoint.PostCoupleCutType.Take;
+                            WaypointQueueController.Shared.UpdateWaypoint(waypoint);
+                        });
+                    }));
+                    builder.AddField("Bleed air on cut", builder.AddToggle(() => waypoint.BleedAirOnUncouple, delegate (bool value)
+                    {
+                        waypoint.BleedAirOnUncouple = value;
+                        WaypointQueueController.Shared.UpdateWaypoint(waypoint);
+                    }, interactable: waypoint.IsUncoupling));
+                    builder.AddField("Apply handbrakes on cut", builder.AddToggle(() => waypoint.ApplyHandbrakesOnUncouple, delegate (bool value)
+                    {
+                        waypoint.ApplyHandbrakesOnUncouple = value;
+                        WaypointQueueController.Shared.UpdateWaypoint(waypoint);
+                    }, interactable: waypoint.IsUncoupling));
+                }
             }
             else
             {
                 builder.HStack(delegate (UIPanelBuilder builder)
                 {
-                    string pluralCars = waypoint.NumberOfCarsToUncouple == 1 ? "car" : "cars";
                     builder.AddField($"Uncouple", builder.HStack(delegate (UIPanelBuilder field)
                     {
-                        field.AddLabel($"{waypoint.NumberOfCarsToUncouple} {pluralCars}")
-                            .TextWrap(TextOverflowModes.Overflow, TextWrappingModes.NoWrap)
-                            .Width(120f)
-                            .Height(30f);
-                        field.AddButton("-", delegate
-                        {
-                            int result = Mathf.Max(waypoint.NumberOfCarsToUncouple - GetOffsetAmount(), 0);
-                            waypoint.NumberOfCarsToUncouple = result;
-                            WaypointQueueController.Shared.UpdateWaypoint(waypoint);
-                        }).Disable(waypoint.NumberOfCarsToUncouple <= 0);
-                        field.AddButton("+", delegate
-                        {
-                            waypoint.NumberOfCarsToUncouple += GetOffsetAmount();
-                            WaypointQueueController.Shared.UpdateWaypoint(waypoint);
-                        });
-
+                        AddCarCutButtons(waypoint, field);
                     }));
                 });
 
@@ -222,10 +234,10 @@ namespace WaypointQueue
                 {
                     builder.AddField($"Start cut from", builder.HStack(delegate (UIPanelBuilder field)
                     {
-                        field.AddLabel(waypoint.UncoupleNearestToWaypoint ? "Closest car to waypoint" : "Furthest car from waypoint");
+                        field.AddLabel(waypoint.CountUncoupledFromNearestToWaypoint ? "Closest car to waypoint" : "Furthest car from waypoint");
                         field.AddButtonCompact("Swap", () =>
                         {
-                            waypoint.UncoupleNearestToWaypoint = !waypoint.UncoupleNearestToWaypoint;
+                            waypoint.CountUncoupledFromNearestToWaypoint = !waypoint.CountUncoupledFromNearestToWaypoint;
                             WaypointQueueController.Shared.UpdateWaypoint(waypoint);
                         });
                     }));
@@ -241,6 +253,26 @@ namespace WaypointQueue
                     }, interactable: waypoint.IsUncoupling));
                 }
             }
+        }
+
+        private void AddCarCutButtons(ManagedWaypoint waypoint, UIPanelBuilder field)
+        {
+            string pluralCars = waypoint.NumberOfCarsToCut == 1 ? "car" : "cars";
+            field.AddLabel($"{waypoint.NumberOfCarsToCut} {pluralCars}")
+                            .TextWrap(TextOverflowModes.Overflow, TextWrappingModes.NoWrap)
+                            .Width(120f)
+                            .Height(30f);
+            field.AddButton("-", delegate
+            {
+                int result = Mathf.Max(waypoint.NumberOfCarsToCut - GetOffsetAmount(), 0);
+                waypoint.NumberOfCarsToCut = result;
+                WaypointQueueController.Shared.UpdateWaypoint(waypoint);
+            }).Disable(waypoint.NumberOfCarsToCut <= 0);
+            field.AddButton("+", delegate
+            {
+                waypoint.NumberOfCarsToCut += GetOffsetAmount();
+                WaypointQueueController.Shared.UpdateWaypoint(waypoint);
+            });
         }
 
         private int GetOffsetAmount()
