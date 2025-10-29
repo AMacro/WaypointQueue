@@ -16,7 +16,7 @@ namespace WaypointQueue
         public override string WindowIdentifier => "WaypointPanel";
         public override string Title => "Waypoints";
 
-        public override Vector2Int DefaultSize => new Vector2Int(560, 150);
+        public override Vector2Int DefaultSize => new Vector2Int(400, 500);
 
         public override Window.Position DefaultPosition => Window.Position.LowerRight;
 
@@ -108,7 +108,7 @@ namespace WaypointQueue
         {
             Loader.LogDebug($"Populating WaypointWindow");
 
-            builder.Spacing = 8f;
+            builder.Spacing = 12f;
 
             builder.VScrollView(delegate (UIPanelBuilder builder)
             {
@@ -130,11 +130,42 @@ namespace WaypointQueue
 
                 builder.HStack(delegate (UIPanelBuilder builder)
                 {
-                    builder.AddLabel($"Showing current waypoints for locomotive {selectedLocomotive.Ident}");
+                    builder.AddLabel($"Showing waypoints for {selectedLocomotive.Ident}");
                     builder.Spacer();
-                    builder.AddButtonCompact("Delete all", () =>
+
+                    List<DropdownMenu.RowData> options = new List<DropdownMenu.RowData>();
+                    options.Add(new DropdownMenu.RowData("Delete all", ""));
+
+                    builder.AddOptionsDropdown(options, (int value) =>
                     {
-                        ModalAlertController.Present($"Delete all waypoints for {selectedLocomotive.Ident}?", "This cannot be undone.", new (bool, string)[2]
+                        switch (value)
+                        {
+                            case 0:
+                                Loader.LogDebug($"Refreshing orders");
+                                break;
+                            case 1:
+                                PresentDeleteAllModal(selectedLocomotive);
+                                break;
+                            default:
+                                break;
+                        }
+                    });
+                    builder.Spacer(8f);
+                });
+
+                builder.Spacer(20f);
+                for (int i = 0; i < waypointList.Count; i++)
+                {
+                    ManagedWaypoint waypoint = waypointList[i];
+                    BuildWaypointSection(waypoint, i + 1, builder);
+                    builder.Spacer(20f);
+                }
+            });
+        }
+
+        private void PresentDeleteAllModal(BaseLocomotive selectedLocomotive)
+        {
+            ModalAlertController.Present($"Delete all waypoints for {selectedLocomotive.Ident}?", "This cannot be undone.", new (bool, string)[2]
                 {
                     (true, "Delete"),
                     (false, "Cancel")
@@ -145,32 +176,35 @@ namespace WaypointQueue
                         WaypointQueueController.Shared.ClearWaypointState(selectedLocomotive);
                     }
                 });
-                    });
-                });
-
-                builder.Spacer(20f);
-                for (int i = 0; i < waypointList.Count; i++)
-                {
-                    ManagedWaypoint waypoint = waypointList[i];
-                    BuildWaypointSection(waypoint, i + 1, builder);
-                }
-            });
         }
 
         private void BuildWaypointSection(ManagedWaypoint waypoint, int number, UIPanelBuilder builder)
         {
-            builder.Spacer(10f);
+            builder.AddHRule();
+            builder.Spacer(16f);
             builder.HStack(delegate (UIPanelBuilder builder)
             {
                 builder.AddLabel($"Waypoint {number}");
                 builder.Spacer();
-                builder.AddButtonCompact("Remove", () => WaypointQueueController.Shared.RemoveWaypoint(waypoint));
+                List<DropdownMenu.RowData> options = new List<DropdownMenu.RowData>();
+                options.Add(new DropdownMenu.RowData("Jump to waypoint", ""));
+                options.Add(new DropdownMenu.RowData("Delete", ""));
+                builder.AddOptionsDropdown(options, (int value) =>
+                {
+                    switch (value)
+                    {
+                        case 0:
+                            JumpCameraToWaypoint(waypoint);
+                            break;
+                        case 1:
+                            WaypointQueueController.Shared.RemoveWaypoint(waypoint);
+                            break;
+                        default:
+                            break;
+                    }
+                });
+                builder.Spacer(8f);
             });
-
-            builder.AddField($"Jump to waypoint", builder.HStack(delegate (UIPanelBuilder field)
-            {
-                field.AddButtonCompact($"Waypoint {number}", () => JumpCameraToWaypoint(waypoint));
-            }));
 
             if (waypoint.IsCoupling)
             {
@@ -180,44 +214,44 @@ namespace WaypointQueue
                     field.AddLabel(couplingToCar.Ident.ToString());
                 }));
 
-                builder.AddField("Connect air", builder.AddToggle(() => waypoint.ConnectAirOnCouple, delegate (bool value)
+                if (Loader.Settings.UseCompactLayout)
                 {
-                    waypoint.ConnectAirOnCouple = value;
-                    WaypointQueueController.Shared.UpdateWaypoint(waypoint);
-                }));
+                    builder.HStack(delegate (UIPanelBuilder builder)
+                    {
+                        AddConnectAirAndReleaseBrakeToggles(waypoint, builder);
+                    });
+                }
+                else
+                {
+                    AddConnectAirAndReleaseBrakeToggles(waypoint, builder);
+                }
 
-                builder.AddField("Release handbrakes", builder.AddToggle(() => waypoint.ReleaseHandbrakesOnCouple, delegate (bool value)
+                builder.AddField($"After coupling", builder.HStack(delegate (UIPanelBuilder field)
                 {
-                    waypoint.ReleaseHandbrakesOnCouple = value;
-                    WaypointQueueController.Shared.UpdateWaypoint(waypoint);
-                }));
+                    string prefix = waypoint.TakeOrLeaveCut == ManagedWaypoint.PostCoupleCutType.Take ? "Take " : "Leave ";
+                    AddCarCutButtons(waypoint, field, prefix);
+                    field.AddButtonCompact("Swap", () =>
+                    {
+                        waypoint.TakeOrLeaveCut = waypoint.TakeOrLeaveCut == ManagedWaypoint.PostCoupleCutType.Take ? ManagedWaypoint.PostCoupleCutType.Leave : ManagedWaypoint.PostCoupleCutType.Take;
+                        WaypointQueueController.Shared.UpdateWaypoint(waypoint);
+                    });
+                    field.Spacer(8f);
 
-                builder.AddField($"Cut after coupling", builder.HStack(delegate (UIPanelBuilder field)
-                {
-                    AddCarCutButtons(waypoint, field);
                 }));
 
                 if (waypoint.NumberOfCarsToCut > 0)
                 {
-                    builder.AddField($"Cut type", builder.HStack(delegate (UIPanelBuilder field)
+                    if (Loader.Settings.UseCompactLayout)
                     {
-                        field.AddLabel(waypoint.TakeOrLeaveCut == ManagedWaypoint.PostCoupleCutType.Take ? "Take" : "Leave");
-                        field.AddButtonCompact("Swap", () =>
-                        {
-                            waypoint.TakeOrLeaveCut = waypoint.TakeOrLeaveCut == ManagedWaypoint.PostCoupleCutType.Take ? ManagedWaypoint.PostCoupleCutType.Leave : ManagedWaypoint.PostCoupleCutType.Take;
-                            WaypointQueueController.Shared.UpdateWaypoint(waypoint);
-                        });
-                    }));
-                    builder.AddField("Bleed air on cut", builder.AddToggle(() => waypoint.BleedAirOnUncouple, delegate (bool value)
+                        builder.HStack(delegate (UIPanelBuilder builder)
                     {
-                        waypoint.BleedAirOnUncouple = value;
-                        WaypointQueueController.Shared.UpdateWaypoint(waypoint);
-                    }, interactable: waypoint.IsUncoupling));
-                    builder.AddField("Apply handbrakes on cut", builder.AddToggle(() => waypoint.ApplyHandbrakesOnUncouple, delegate (bool value)
+                        AddBleedAirAndSetBrakeToggles(waypoint, builder);
+                    });
+                    }
+                    else
                     {
-                        waypoint.ApplyHandbrakesOnUncouple = value;
-                        WaypointQueueController.Shared.UpdateWaypoint(waypoint);
-                    }, interactable: waypoint.IsUncoupling));
+                        AddBleedAirAndSetBrakeToggles(waypoint, builder);
+                    }
                 }
             }
             else
@@ -226,53 +260,80 @@ namespace WaypointQueue
                 {
                     builder.AddField($"Uncouple", builder.HStack(delegate (UIPanelBuilder field)
                     {
-                        AddCarCutButtons(waypoint, field);
+                        AddCarCutButtons(waypoint, field, null);
                     }));
                 });
 
                 if (waypoint.IsUncoupling)
                 {
-                    builder.AddField($"Start cut from", builder.HStack(delegate (UIPanelBuilder field)
+                    builder.AddField($"Count cars from",
+                    builder.AddDropdown(new List<string> { "Closest to waypoint", "Furthest from waypoint" }, waypoint.CountUncoupledFromNearestToWaypoint ? 0 : 1, (int value) =>
                     {
-                        field.AddLabel(waypoint.CountUncoupledFromNearestToWaypoint ? "Closest car to waypoint" : "Furthest car from waypoint");
-                        field.AddButtonCompact("Swap", () =>
-                        {
-                            waypoint.CountUncoupledFromNearestToWaypoint = !waypoint.CountUncoupledFromNearestToWaypoint;
-                            WaypointQueueController.Shared.UpdateWaypoint(waypoint);
-                        });
+                        waypoint.CountUncoupledFromNearestToWaypoint = !waypoint.CountUncoupledFromNearestToWaypoint;
+                        WaypointQueueController.Shared.UpdateWaypoint(waypoint);
                     }));
-                    builder.AddField("Bleed air", builder.AddToggle(() => waypoint.BleedAirOnUncouple, delegate (bool value)
+
+                    if (Loader.Settings.UseCompactLayout)
                     {
-                        waypoint.BleedAirOnUncouple = value;
-                        WaypointQueueController.Shared.UpdateWaypoint(waypoint);
-                    }, interactable: waypoint.IsUncoupling));
-                    builder.AddField("Apply handbrakes", builder.AddToggle(() => waypoint.ApplyHandbrakesOnUncouple, delegate (bool value)
+                        builder.HStack(delegate (UIPanelBuilder builder)
+                        {
+                            AddBleedAirAndSetBrakeToggles(waypoint, builder);
+                        });
+                    }
+                    else
                     {
-                        waypoint.ApplyHandbrakesOnUncouple = value;
-                        WaypointQueueController.Shared.UpdateWaypoint(waypoint);
-                    }, interactable: waypoint.IsUncoupling));
+                        AddBleedAirAndSetBrakeToggles(waypoint, builder);
+                    }
                 }
             }
         }
 
-        private void AddCarCutButtons(ManagedWaypoint waypoint, UIPanelBuilder field)
+        private void AddConnectAirAndReleaseBrakeToggles(ManagedWaypoint waypoint, UIPanelBuilder builder)
+        {
+            builder.AddField("Connect air", builder.AddToggle(() => waypoint.ConnectAirOnCouple, delegate (bool value)
+            {
+                waypoint.ConnectAirOnCouple = value;
+                WaypointQueueController.Shared.UpdateWaypoint(waypoint);
+            }));
+
+            builder.AddField("Release handbrakes", builder.AddToggle(() => waypoint.ReleaseHandbrakesOnCouple, delegate (bool value)
+            {
+                waypoint.ReleaseHandbrakesOnCouple = value;
+                WaypointQueueController.Shared.UpdateWaypoint(waypoint);
+            }));
+        }
+
+        private void AddBleedAirAndSetBrakeToggles(ManagedWaypoint waypoint, UIPanelBuilder builder)
+        {
+            builder.AddField("Bleed air", builder.AddToggle(() => waypoint.BleedAirOnUncouple, delegate (bool value)
+            {
+                waypoint.BleedAirOnUncouple = value;
+                WaypointQueueController.Shared.UpdateWaypoint(waypoint);
+            }, interactable: waypoint.NumberOfCarsToCut > 0));
+            builder.AddField("Apply handbrakes", builder.AddToggle(() => waypoint.ApplyHandbrakesOnUncouple, delegate (bool value)
+            {
+                waypoint.ApplyHandbrakesOnUncouple = value;
+                WaypointQueueController.Shared.UpdateWaypoint(waypoint);
+            }, interactable: waypoint.NumberOfCarsToCut > 0));
+        }
+
+        private void AddCarCutButtons(ManagedWaypoint waypoint, UIPanelBuilder field, string prefix = null)
         {
             string pluralCars = waypoint.NumberOfCarsToCut == 1 ? "car" : "cars";
-            field.AddLabel($"{waypoint.NumberOfCarsToCut} {pluralCars}")
+            field.AddLabel($"{prefix}{waypoint.NumberOfCarsToCut} {pluralCars}")
                             .TextWrap(TextOverflowModes.Overflow, TextWrappingModes.NoWrap)
-                            .Width(120f)
-                            .Height(30f);
-            field.AddButton("-", delegate
+                            .Width(100f);
+            field.AddButtonCompact("-", delegate
             {
                 int result = Mathf.Max(waypoint.NumberOfCarsToCut - GetOffsetAmount(), 0);
                 waypoint.NumberOfCarsToCut = result;
                 WaypointQueueController.Shared.UpdateWaypoint(waypoint);
-            }).Disable(waypoint.NumberOfCarsToCut <= 0);
-            field.AddButton("+", delegate
+            }).Disable(waypoint.NumberOfCarsToCut <= 0).Width(24f);
+            field.AddButtonCompact("+", delegate
             {
                 waypoint.NumberOfCarsToCut += GetOffsetAmount();
                 WaypointQueueController.Shared.UpdateWaypoint(waypoint);
-            });
+            }).Width(24f);
         }
 
         private int GetOffsetAmount()
