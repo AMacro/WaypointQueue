@@ -126,12 +126,13 @@ namespace WaypointQueue
                             entry.UnresolvedWaypoint.WillRefuel = false;
                             entry.UnresolvedWaypoint.CurrentlyRefueling = false;
                             SetCarLoadTargetLoaderCanLoad(entry.UnresolvedWaypoint, false);
-                        } else
+                        }
+                        else
                         {
                             continue;
                         }
                     }
-                    
+
                     ResolveWaypointOrders(entry.UnresolvedWaypoint);
                     entry.UnresolvedWaypoint = null;
                     // RemoveCurrentWaypoint gets called as a side effect of the ClearWaypoint postfix
@@ -470,7 +471,8 @@ namespace WaypointQueue
             InitCarLoaders();
             foreach (CarLoadTargetLoader targetLoader in _carLoadTargetLoaders)
             {
-                if (Graph.Shared.TryGetLocationFromWorldPoint(targetLoader.transform.position, 10f, out Location loaderLocation))
+                List<string> validLoads = ["water", "coal", "diesel"];
+                if (validLoads.Contains(targetLoader.load?.name) && Graph.Shared.TryGetLocationFromWorldPoint(targetLoader.transform.position, 10f, out Location loaderLocation))
                 {
                     float distanceFromWaypointToLoader = Vector3.Distance(waypoint.Location.GetPosition(), loaderLocation.GetPosition());
 
