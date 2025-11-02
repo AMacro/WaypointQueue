@@ -1,7 +1,12 @@
 ﻿using Game.Messages;
 using Game.State;
+using Helpers;
 using Model;
 using Model.AI;
+using Model.Definition.Data;
+using Model.Ops;
+using Model.Ops.Definition;
+using RollingStock;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -22,6 +27,8 @@ namespace WaypointQueue
         private Coroutine _coroutine;
 
         public List<LocoWaypointState> WaypointStateList { get; private set; } = new List<LocoWaypointState>();
+
+        private List<CarLoadTargetLoader> _carLoadTargetLoaders = new List<CarLoadTargetLoader>();
 
         private static WaypointQueueController _shared;
 
@@ -61,6 +68,15 @@ namespace WaypointQueue
             _coroutine = null;
         }
 
+        public void InitCarLoaders()
+        {
+            if (_carLoadTargetLoaders == null || _carLoadTargetLoaders.Count <= 0)
+            {
+                Loader.LogDebug($"Initializing list of car load target loaders");
+                _carLoadTargetLoaders = FindObjectsOfType<CarLoadTargetLoader>().ToList();
+            }
+        }
+
         private void DoQueueTickUpdate()
         {
             if (WaypointStateList == null)
@@ -94,6 +110,28 @@ namespace WaypointQueue
                  */
                 if (entry.UnresolvedWaypoint != null)
                 {
+                    if (entry.UnresolvedWaypoint.WillRefuel && !entry.UnresolvedWaypoint.CurrentlyRefueling)
+                    {
+                        Loader.LogDebug($"Start currently refueling {entry.Locomotive.Ident}");
+                        entry.UnresolvedWaypoint.CurrentlyRefueling = true;
+                        ResolveRefuel(entry.UnresolvedWaypoint, ordersHelper);
+                        continue;
+                    }
+
+                    if (entry.UnresolvedWaypoint.CurrentlyRefueling)
+                    {
+                        if (IsDoneRefueling(entry.UnresolvedWaypoint))
+                        {
+                            Loader.LogDebug($"Done refueling {entry.Locomotive.Ident}");
+                            entry.UnresolvedWaypoint.WillRefuel = false;
+                            entry.UnresolvedWaypoint.CurrentlyRefueling = false;
+                            SetCarLoadTargetLoaderCanLoad(entry.UnresolvedWaypoint, false);
+                        } else
+                        {
+                            continue;
+                        }
+                    }
+                    
                     ResolveWaypointOrders(entry.UnresolvedWaypoint);
                     entry.UnresolvedWaypoint = null;
                     // RemoveCurrentWaypoint gets called as a side effect of the ClearWaypoint postfix
@@ -153,6 +191,7 @@ namespace WaypointQueue
             }
 
             ManagedWaypoint waypoint = new ManagedWaypoint(loco, location, coupleToCarId);
+            CheckNearbyFuelLoaders(waypoint);
             if (isReplacing && entry.Waypoints.Count > 0)
             {
                 entry.Waypoints[0] = waypoint;
@@ -297,6 +336,160 @@ namespace WaypointQueue
             }
         }
 
+        private Car GetFuelCar(BaseLocomotive locomotive)
+        {
+            Car fuelCar = locomotive;
+            if (locomotive.Archetype == Model.Definition.CarArchetype.LocomotiveSteam)
+            {
+                fuelCar = PatchSteamLocomotive.FuelCar(locomotive);
+            }
+            return fuelCar;
+        }
+
+        private bool IsDoneRefueling(ManagedWaypoint waypoint)
+        {
+            return IsLocoFull(waypoint) || IsLoaderEmpty(waypoint);
+        }
+
+        private bool IsLocoFull(ManagedWaypoint waypoint)
+        {
+            Car fuelCar = GetFuelCar((BaseLocomotive)waypoint.Locomotive);
+            CarLoadInfo? carLoadInfo = fuelCar.GetLoadInfo(waypoint.RefuelLoadName, out int slotIndex);
+
+            double refillThreshold = 25;
+            if (waypoint.RefuelMaxCapacity - carLoadInfo.Value.Quantity < refillThreshold)
+            {
+                Loader.LogDebug($"Loco is full");
+                return true;
+            }
+            //Loader.LogDebug($"Loco is not full yet");
+            return false;
+        }
+
+        private bool IsLoaderEmpty(ManagedWaypoint waypoint)
+        {
+            string industryId = waypoint.RefuelIndustryId;
+            string loadId = waypoint.RefuelLoadName;
+
+            Industry industry = OpsController.Shared.AllIndustries.ToList().Find(x => x.identifier == industryId);
+            if (industry == null)
+            {
+                // Water towers are unlimited and have a null industry
+                return false;
+            }
+
+            Load matchingLoad = industry.Storage.Loads().ToList().Find(l => l.name == loadId);
+
+            double loaderStorageThreshold = 10;
+            if (industry.Storage.QuantityInStorage(matchingLoad) < loaderStorageThreshold)
+            {
+                Loader.LogDebug($"Industry is empty");
+                return true;
+            }
+            return false;
+        }
+
+        private void SetCarLoadTargetLoaderCanLoad(ManagedWaypoint waypoint, bool value)
+        {
+            CarLoadTargetLoader loaderTarget = FindCarLoadTargetLoader(waypoint);
+            if (loaderTarget != null)
+            {
+                loaderTarget.keyValueObject[loaderTarget.canLoadBoolKey] = value;
+            }
+        }
+
+        public void ResolveRefuel(ManagedWaypoint waypoint, AutoEngineerOrdersHelper ordersHelper)
+        {
+            Loader.LogDebug($"Resolving refuel");
+            // maybe in the future, support refueling multiple locomotives if they are MU'd
+            Location locationToMove = GetRefuelLocation(waypoint, ordersHelper);
+            SetCarLoadTargetLoaderCanLoad(waypoint, true);
+            SendToWaypointFromRefuel(waypoint, locationToMove, ordersHelper);
+        }
+
+        private CarLoadTargetLoader FindCarLoadTargetLoader(ManagedWaypoint waypoint)
+        {
+            InitCarLoaders();
+            Vector3 worldPosition = WorldTransformer.GameToWorld(waypoint.RefuelPoint);
+            //Loader.LogDebug($"Starting search for target loader matching world point {worldPosition}");
+            CarLoadTargetLoader loader = _carLoadTargetLoaders.Find(l => l.transform.position == worldPosition);
+            //Loader.LogDebug($"Found matching {loader.load.name} loader at game point {waypoint.RefuelPoint}");
+            return loader;
+        }
+
+        private Location GetRefuelLocation(ManagedWaypoint waypoint, AutoEngineerOrdersHelper ordersHelper)
+        {
+            Loader.LogDebug($"Finding refuel location");
+
+            Car fuelCar = GetFuelCar((BaseLocomotive)waypoint.Locomotive);
+
+            LoadSlot loadSlot = fuelCar.Definition.LoadSlots.Find(slot => slot.RequiredLoadIdentifier == waypoint.RefuelLoadName);
+
+            waypoint.RefuelMaxCapacity = loadSlot.MaximumCapacity;
+
+            int loadSlotIndex = fuelCar.Definition.LoadSlots.IndexOf(loadSlot);
+
+            List<CarLoadTarget> carLoadTargets = fuelCar.GetComponentsInChildren<CarLoadTarget>().ToList();
+            CarLoadTarget loadTarget = carLoadTargets.Find(clt => clt.slotIndex == loadSlotIndex);
+
+            Vector3 loadTargetPosition = GetPositionFromLoadTarget(fuelCar, loadTarget);
+
+            if (!Graph.Shared.TryGetLocationFromGamePoint(waypoint.RefuelPoint, 10f, out Location targetLoaderLocation))
+            {
+                throw new InvalidOperationException($"Cannot refuel at waypoint, failed to get graph location from refuel game point {waypoint.RefuelPoint}");
+            }
+            Loader.LogDebug($"Target {waypoint.RefuelLoadName} loader location is {targetLoaderLocation}");
+
+            LogicalEnd closestEnd = ClosestLogicalEndTo(fuelCar, targetLoaderLocation);
+            Car nearestCar = fuelCar.EnumerateCoupled(closestEnd).First();
+            Location locationOfTrainEnd = nearestCar.LocationFor(closestEnd);
+            Loader.LogDebug($"Nearest car to {waypoint.RefuelLoadName} loader is {nearestCar.Ident} at {locationOfTrainEnd}");
+
+            float distanceFromEndToSlot = Vector3.Distance(locationOfTrainEnd.GetPosition().ZeroY(), loadTargetPosition.ZeroY());
+            Loader.LogDebug($"Distance from end of train to locomotive's {waypoint.RefuelLoadName} slot is {distanceFromEndToSlot}");
+
+            Location orientedTargetLocation = Graph.Shared.LocationOrientedToward(targetLoaderLocation, locationOfTrainEnd);
+
+            Location locationToMove = Graph.Shared.LocationByMoving(orientedTargetLocation, distanceFromEndToSlot, true, true);
+
+            Loader.LogDebug($"Location to refuel {waypoint.RefuelLoadName} is {locationToMove}");
+            return locationToMove;
+        }
+
+        private Vector3 GetPositionFromLoadTarget(Car fuelCar, CarLoadTarget loadTarget)
+        {
+            // This logic is based on CarLoadTargetLoader.LoadSlotFromCar
+            Matrix4x4 transformMatrix = fuelCar.GetTransformMatrix(Graph.Shared);
+            Vector3 point2 = fuelCar.transform.InverseTransformPoint(loadTarget.transform.position);
+            Vector3 vector = transformMatrix.MultiplyPoint3x4(point2);
+            return vector;
+        }
+
+        private void CheckNearbyFuelLoaders(ManagedWaypoint waypoint)
+        {
+            InitCarLoaders();
+            foreach (CarLoadTargetLoader targetLoader in _carLoadTargetLoaders)
+            {
+                if (Graph.Shared.TryGetLocationFromWorldPoint(targetLoader.transform.position, 10f, out Location loaderLocation))
+                {
+                    float distanceFromWaypointToLoader = Vector3.Distance(waypoint.Location.GetPosition(), loaderLocation.GetPosition());
+
+                    float radiusToSearch = 10f;
+
+                    if (distanceFromWaypointToLoader < radiusToSearch)
+                    {
+                        Vector3 loaderPosition = WorldTransformer.WorldToGame(targetLoader.transform.position);
+                        // CarLoadTargetLoader uses game position for loading logic, not graph Location
+                        waypoint.SerializableRefuelPoint = new SerializableVector3(loaderPosition.x, loaderPosition.y, loaderPosition.z);
+                        // Water towers will have a null source industry
+                        waypoint.RefuelIndustryId = targetLoader.sourceIndustry?.identifier;
+                        waypoint.RefuelLoadName = targetLoader.load.name;
+                        break;
+                    }
+                }
+            }
+        }
+
         private void ResolveCouplingOrders(ManagedWaypoint waypoint)
         {
             Loader.LogDebug($"Resolving coupling orders for loco {waypoint.Locomotive.Ident}");
@@ -433,7 +626,7 @@ namespace WaypointQueue
             }
 
             // The car from the cut that is adjacent to the rest of the uncut train
-            Car carToUncouple = waypoint.CountUncoupledFromNearestToWaypoint ? uncoupledCars.Last() : uncoupledCars.First();
+            Car carToUncouple = uncoupledCars.Last();
 
             /**
              * Uncouple 2 cars closest to the waypoint.
@@ -567,6 +760,13 @@ namespace WaypointQueue
         {
             Loader.LogDebug($"Sending next waypoint for {waypoint.Locomotive.Ident} to {waypoint.Location}");
             (Location, string)? maybeWaypoint = (waypoint.Location, waypoint.CoupleToCarId);
+            ordersHelper.SetOrdersValue(null, null, null, null, maybeWaypoint);
+        }
+
+        private void SendToWaypointFromRefuel(ManagedWaypoint waypoint, Location refuelLocation, AutoEngineerOrdersHelper ordersHelper)
+        {
+            Loader.LogDebug($"Sending refueling waypoint for {waypoint.Locomotive.Ident} to {refuelLocation}");
+            (Location, string)? maybeWaypoint = (refuelLocation, null);
             ordersHelper.SetOrdersValue(null, null, null, null, maybeWaypoint);
         }
 

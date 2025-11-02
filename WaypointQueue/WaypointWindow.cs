@@ -1,8 +1,11 @@
 ﻿using Game.Messages;
 using Game.State;
 using Model;
+using Model.Ops;
+using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using TMPro;
 using UI;
 using UI.Builder;
@@ -41,7 +44,7 @@ namespace WaypointQueue
 
         private void OnWaypointsUpdated()
         {
-            Loader.LogDebug($"WaypointWindow OnWaypointsUpdated");
+            //Loader.LogDebug($"WaypointWindow OnWaypointsUpdated");
             Rebuild();
         }
 
@@ -213,6 +216,11 @@ namespace WaypointQueue
                 builder.Spacer(8f);
             });
 
+            builder.AddField($"Destination", builder.HStack(delegate (UIPanelBuilder field)
+            {
+                field.AddLabel(waypoint.AreaName?.Length > 0 ? waypoint.AreaName : "Unknown");
+            }));
+
             if (waypoint.IsCoupling)
             {
                 TrainController.Shared.TryGetCarForId(waypoint.CoupleToCarId, out Car couplingToCar);
@@ -244,7 +252,7 @@ namespace WaypointQueue
                     });
                     field.Spacer(8f);
 
-                }));
+                })).Tooltip("Cutting cars after coupling", "After coupling, you can \"Take\" or \"Leave\" a number of cars. This is very useful when queueing switching orders.\n\nIf you couple to a cut of 3 cars and \"Take\" 2 cars, you will leave with the 2 closest cars and the 3rd car will be left behind. \n\nIf you are coupling 2 additional cars to 1 car already spotted, you can \"Leave\" 2 cars and continue to the next queued waypoint.");
 
                 if (waypoint.NumberOfCarsToCut > 0)
                 {
@@ -292,6 +300,15 @@ namespace WaypointQueue
                         AddBleedAirAndSetBrakeToggles(waypoint, builder);
                     }
                 }
+            }
+
+            if(waypoint.CanRefuelNearby)
+            {
+                builder.AddField($"Refuel {waypoint.RefuelLoadName}", builder.AddToggle(() => waypoint.WillRefuel, delegate (bool value)
+                {
+                    waypoint.WillRefuel = value;
+                    WaypointQueueController.Shared.UpdateWaypoint(waypoint);
+                }));
             }
         }
 

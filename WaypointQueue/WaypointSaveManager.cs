@@ -92,6 +92,8 @@ namespace WaypointQueue
             _timeAlreadyStarted = true;
             Loader.LogDebug($"The dawn of time");
 
+            WaypointQueueController.Shared.InitCarLoaders();
+
             if (WaypointSaveManager.UnappliedSaveState != null)
             {
                 WaypointQueueController.Shared.LoadWaypointSaveState(UnappliedSaveState);
