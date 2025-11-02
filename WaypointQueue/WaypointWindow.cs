@@ -241,7 +241,7 @@ namespace WaypointQueue
                     AddConnectAirAndReleaseBrakeToggles(waypoint, builder);
                 }
 
-                builder.AddField($"After coupling", builder.HStack(delegate (UIPanelBuilder field)
+                builder.AddField($"Post-coupling cut", builder.HStack(delegate (UIPanelBuilder field)
                 {
                     string prefix = waypoint.TakeOrLeaveCut == ManagedWaypoint.PostCoupleCutType.Take ? "Take " : "Leave ";
                     AddCarCutButtons(waypoint, field, prefix);
@@ -299,6 +299,12 @@ namespace WaypointQueue
                     {
                         AddBleedAirAndSetBrakeToggles(waypoint, builder);
                     }
+
+                    builder.AddField($"Take active cut", builder.AddToggle(() => waypoint.TakeUncoupledCarsAsActiveCut, delegate (bool value)
+                    {
+                        waypoint.TakeUncoupledCarsAsActiveCut = value;
+                        WaypointQueueController.Shared.UpdateWaypoint(waypoint);
+                    })).Tooltip("Take active cut", "If this is active, the number of cars to uncouple will still be part of the active train. The rest of the train will be treated as an uncoupled cut which may bleed air and apply handbrakes. This is particularly useful for local freight switching.\n\nA train of 10 cars arrives in Whittier. The 2 cars behind the locomotive need to be delivered. By checking \"Take active cut\", you can order the engineer to travel to a waypoint, uncouple 4 cars including the locomotive and tender, and travel to another waypoint to the industry track to deliver the 2 cars, all while knowing that the rest of the local freight consist has handbrakes applied.");
                 }
             }
 
@@ -344,7 +350,7 @@ namespace WaypointQueue
         private void AddCarCutButtons(ManagedWaypoint waypoint, UIPanelBuilder field, string prefix = null)
         {
             string pluralCars = waypoint.NumberOfCarsToCut == 1 ? "car" : "cars";
-            field.AddLabel($"{prefix}{waypoint.NumberOfCarsToCut} {pluralCars}")
+            field.AddLabel($"{prefix}{waypoint.NumberOfCarsToCut}")
                             .TextWrap(TextOverflowModes.Overflow, TextWrappingModes.NoWrap)
                             .Width(100f);
             field.AddButtonCompact("-", delegate

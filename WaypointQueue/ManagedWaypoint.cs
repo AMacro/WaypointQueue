@@ -59,6 +59,7 @@ namespace WaypointQueue
         public int NumberOfCarsToCut { get; set; }
         public bool CountUncoupledFromNearestToWaypoint { get; set; }
         public PostCoupleCutType TakeOrLeaveCut { get; set; }
+        public bool TakeUncoupledCarsAsActiveCut { get; set; }
 
         [JsonIgnore]
         public bool CanRefuelNearby
@@ -121,10 +122,11 @@ namespace WaypointQueue
             WillRefuel = false;
             CurrentlyRefueling = false;
             AreaName = OpsController.Shared.ClosestAreaForGamePosition(Location.GetPosition()).name;
+            TakeUncoupledCarsAsActiveCut = false;
         }
 
         [JsonConstructor]
-        public ManagedWaypoint(string id, string locomotiveId, string locationString, string coupleToCarId, bool connectAirOnCouple, bool releaseHandbrakesOnCouple, bool applyHandbrakesOnUncouple, bool bleedAirOnUncouple, int numberOfCarsToCut, bool countUncoupledFromNearestToWaypoint, PostCoupleCutType takeOrLeaveCut, SerializableVector3 serializableRefuelPoint, string refuelIndustryId, string refuelLoadName, float refuelMaxCapacity, bool willRefuel, bool currentlyRefueling, string areaName)
+        public ManagedWaypoint(string id, string locomotiveId, string locationString, string coupleToCarId, bool connectAirOnCouple, bool releaseHandbrakesOnCouple, bool applyHandbrakesOnUncouple, bool bleedAirOnUncouple, int numberOfCarsToCut, bool countUncoupledFromNearestToWaypoint, PostCoupleCutType takeOrLeaveCut, SerializableVector3 serializableRefuelPoint, string refuelIndustryId, string refuelLoadName, float refuelMaxCapacity, bool willRefuel, bool currentlyRefueling, string areaName, bool takeUncoupledCarsAsActiveCut)
         {
             Id = id;
             LocomotiveId = locomotiveId;
@@ -144,6 +146,7 @@ namespace WaypointQueue
             WillRefuel = willRefuel;
             CurrentlyRefueling = currentlyRefueling;
             AreaName = areaName;
+            TakeUncoupledCarsAsActiveCut = takeUncoupledCarsAsActiveCut;
         }
     }
 

@@ -678,15 +678,36 @@ namespace WaypointQueue
         private void ResolveUncouplingOrders(ManagedWaypoint waypoint)
         {
             Loader.LogDebug($"Resolving uncoupling orders");
-            List<Car> uncoupledCars = GetCarsToUncouple(waypoint);
+
+            LogicalEnd directionToCountCars = GetEndRelativeToWapoint(waypoint.Locomotive, waypoint.Location, useFurthestEnd: !waypoint.CountUncoupledFromNearestToWaypoint);
+
+            List<Car> allCarsFromEnd = waypoint.Locomotive.EnumerateCoupled(directionToCountCars).ToList();
+
+            // Handling the direction ensures cars to cut are at the front of the list
+            List<Car> carsToCut = allCarsFromEnd.Take(waypoint.NumberOfCarsToCut).ToList();
+
+            carsToCut = FilterAnySplitLocoTenderPairs(carsToCut);
+
+            List<Car> carsRemaining = allCarsFromEnd.Except(carsToCut).ToList();
+
+            List<Car> activeCut = carsRemaining;
+            List<Car> inactiveCut = carsToCut;
+
+            if(waypoint.TakeUncoupledCarsAsActiveCut)
+            {
+                activeCut = carsToCut;
+                inactiveCut = carsRemaining;
+            }
+
+            Loader.LogDebug("Cutting " + String.Join("-", carsToCut.Select(c => $"[{c.Ident}]") + " from " + String.Join("-", allCarsFromEnd.Select(c => $"[{c.Ident}]"))) + " as " + (waypoint.TakeUncoupledCarsAsActiveCut ? "active cut" : "inactive cut"));
 
             if (waypoint.ApplyHandbrakesOnUncouple)
             {
-                SetHandbrakes(uncoupledCars);
+                SetHandbrakes(inactiveCut);
             }
 
             // The car from the cut that is adjacent to the rest of the uncut train
-            Car carToUncouple = uncoupledCars.Last();
+            Car carToUncouple = carsToCut.Last();
 
             /**
              * Uncouple 2 cars closest to the waypoint.
@@ -703,33 +724,17 @@ namespace WaypointQueue
              */
             LogicalEnd endToUncouple = GetEndRelativeToWapoint(carToUncouple, waypoint.Location, useFurthestEnd: waypoint.CountUncoupledFromNearestToWaypoint);
 
-            Loader.LogDebug($"Uncoupling {carToUncouple.Ident} for cut of {uncoupledCars.Count} cars");
+            Loader.LogDebug($"Uncoupling {carToUncouple.Ident} for cut of {carsToCut.Count} cars");
             UncoupleCar(carToUncouple, endToUncouple);
 
             if (waypoint.BleedAirOnUncouple)
             {
-                Loader.LogDebug($"Bleeding air on {uncoupledCars.Count} cars");
-                foreach (Car car in uncoupledCars)
+                Loader.LogDebug($"Bleeding air on {inactiveCut.Count} cars");
+                foreach (Car car in inactiveCut)
                 {
                     car.air.BleedBrakeCylinder();
                 }
             }
-        }
-
-        private List<Car> GetCarsToUncouple(ManagedWaypoint waypoint)
-        {
-            LogicalEnd directionToCountCars = GetEndRelativeToWapoint(waypoint.Locomotive, waypoint.Location, useFurthestEnd: !waypoint.CountUncoupledFromNearestToWaypoint);
-
-            List<Car> allCarsFromEnd = waypoint.Locomotive.EnumerateCoupled(directionToCountCars).ToList();
-
-            // Handling the direction ensures cars to cut are at the front of the list
-            List<Car> carsToCut = allCarsFromEnd.Take(waypoint.NumberOfCarsToCut).ToList();
-
-            carsToCut = FilterAnySplitLocoTenderPairs(carsToCut);
-
-            Loader.LogDebug("Cutting " + String.Join("-", carsToCut.Select(c => $"[{c.Ident}]") + " from " + String.Join("-", allCarsFromEnd.Select(c => $"[{c.Ident}]"))));
-
-            return carsToCut;
         }
 
         private List<Car> FilterAnySplitLocoTenderPairs(List<Car> carsToCut)
