@@ -464,18 +464,47 @@ namespace WaypointQueue
 
             LogicalEnd closestEnd = ClosestLogicalEndTo(fuelCar, targetLoaderLocation);
             Car nearestCar = fuelCar.EnumerateCoupled(closestEnd).First();
-            Location locationOfTrainEnd = nearestCar.LocationFor(closestEnd);
-            Loader.LogDebug($"Nearest car to {waypoint.RefuelLoadName} loader is {nearestCar.Ident} at {locationOfTrainEnd}");
+            Location closestTrainEndLocation = nearestCar.LocationFor(closestEnd);
+            Loader.LogDebug($"Nearest car to {waypoint.RefuelLoadName} loader is {nearestCar.Ident} at {closestTrainEndLocation} with logical end {(closestEnd == LogicalEnd.A ? "A" : "B")}");
 
-            float distanceFromEndToSlot = Vector3.Distance(locationOfTrainEnd.GetPosition().ZeroY(), loadTargetPosition.ZeroY());
+            LogicalEnd furthestEnd = closestEnd == LogicalEnd.A ? LogicalEnd.B : LogicalEnd.A;
+            Car furthestCar = fuelCar.EnumerateCoupled(furthestEnd).First();
+            Location furthestTrainEndLocation = nearestCar.LocationFor(furthestEnd);
+
+            // Unclear how accurate this is when the train is on segment of curved track since the distance
+            // would be a straight line between the points and wouldn't account for the curve.
+            // May have to calculate distances based on the track segments rather than Vector3 points
+            float distanceFromEndToSlot = Vector3.Distance(closestTrainEndLocation.GetPosition().ZeroY(), loadTargetPosition.ZeroY());
             Loader.LogDebug($"Distance from end of train to locomotive's {waypoint.RefuelLoadName} slot is {distanceFromEndToSlot}");
 
-            Location orientedTargetLocation = Graph.Shared.LocationOrientedToward(targetLoaderLocation, locationOfTrainEnd);
+            Location orientedTargetLocation = Graph.Shared.LocationOrientedToward(targetLoaderLocation, closestTrainEndLocation);
+
+            // If the end of the train is already past the waypoint, then it would incorrectly orient the distance
+            if (IsTargetInMiddle(targetLoaderLocation, closestTrainEndLocation, furthestTrainEndLocation))
+            {
+                distanceFromEndToSlot = -distanceFromEndToSlot;
+            }
 
             Location locationToMove = Graph.Shared.LocationByMoving(orientedTargetLocation, distanceFromEndToSlot, true, true);
 
             Loader.LogDebug($"Location to refuel {waypoint.RefuelLoadName} is {locationToMove}");
             return locationToMove;
+        }
+
+        private bool IsTargetInMiddle(Location targetLoaderLocation, Location closestTrainEndLocation, Location furthestTrainEndLocation)
+        {
+            // If target is in the middle, the distance between either end to the target will always be less than the length from one end to the other
+            float distanceCloseToTarget = Vector3.Distance(closestTrainEndLocation.GetPosition().ZeroY(), targetLoaderLocation.GetPosition().ZeroY());
+
+            float distanceFarToTarget = Vector3.Distance(furthestTrainEndLocation.GetPosition().ZeroY(), targetLoaderLocation.GetPosition().ZeroY());
+
+            float distanceEndToEnd = Vector3.Distance(closestTrainEndLocation.GetPosition().ZeroY(), furthestTrainEndLocation.GetPosition().ZeroY());
+
+            if (distanceCloseToTarget < distanceEndToEnd && distanceFarToTarget < distanceEndToEnd)
+            {
+                return true;
+            }
+            return false;
         }
 
         private Vector3 GetPositionFromLoadTarget(Car fuelCar, CarLoadTarget loadTarget)
