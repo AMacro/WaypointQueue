@@ -84,6 +84,7 @@ namespace WaypointQueue
         public float RefuelMaxCapacity { get; set; }
         public bool WillRefuel { get; set; }
         public bool CurrentlyRefueling { get; set; }
+        public int MaxSpeedAfterRefueling { get; set; }
         public string AreaName { get; set; }
 
         public void Load()
@@ -126,7 +127,7 @@ namespace WaypointQueue
         }
 
         [JsonConstructor]
-        public ManagedWaypoint(string id, string locomotiveId, string locationString, string coupleToCarId, bool connectAirOnCouple, bool releaseHandbrakesOnCouple, bool applyHandbrakesOnUncouple, bool bleedAirOnUncouple, int numberOfCarsToCut, bool countUncoupledFromNearestToWaypoint, PostCoupleCutType takeOrLeaveCut, SerializableVector3 serializableRefuelPoint, string refuelIndustryId, string refuelLoadName, float refuelMaxCapacity, bool willRefuel, bool currentlyRefueling, string areaName, bool takeUncoupledCarsAsActiveCut)
+        public ManagedWaypoint(string id, string locomotiveId, string locationString, string coupleToCarId, bool connectAirOnCouple, bool releaseHandbrakesOnCouple, bool applyHandbrakesOnUncouple, bool bleedAirOnUncouple, int numberOfCarsToCut, bool countUncoupledFromNearestToWaypoint, PostCoupleCutType takeOrLeaveCut, SerializableVector3 serializableRefuelPoint, string refuelIndustryId, string refuelLoadName, float refuelMaxCapacity, bool willRefuel, bool currentlyRefueling, string areaName, bool takeUncoupledCarsAsActiveCut, int maxSpeedAfterRefueling)
         {
             Id = id;
             LocomotiveId = locomotiveId;
@@ -147,6 +148,7 @@ namespace WaypointQueue
             CurrentlyRefueling = currentlyRefueling;
             AreaName = areaName;
             TakeUncoupledCarsAsActiveCut = takeUncoupledCarsAsActiveCut;
+            MaxSpeedAfterRefueling = maxSpeedAfterRefueling;
         }
     }
 

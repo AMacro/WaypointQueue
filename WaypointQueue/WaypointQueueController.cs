@@ -126,6 +126,10 @@ namespace WaypointQueue
                             entry.UnresolvedWaypoint.WillRefuel = false;
                             entry.UnresolvedWaypoint.CurrentlyRefueling = false;
                             SetCarLoadTargetLoaderCanLoad(entry.UnresolvedWaypoint, false);
+
+                            int maxSpeed = entry.UnresolvedWaypoint.MaxSpeedAfterRefueling;
+                            if (maxSpeed == 0) maxSpeed = 35;
+                            ordersHelper.SetOrdersValue(null, null, maxSpeedMph: maxSpeed, null, null);
                         }
                         else
                         {
@@ -134,8 +138,13 @@ namespace WaypointQueue
                         }
                     }
 
-                    if(!entry.Locomotive.IsStopped(2f))
+                    /*
+                     * Locomotive must come to a complete stop before resolving coupling or uncoupling orders.
+                     * Otherwise, some cars may be uncoupled and then recoupled if the train still has momentum.
+                     */
+                    if (Math.Abs(entry.Locomotive.velocity) > 0)
                     {
+                        Loader.LogDebug($"Locomotive not stopped, continuing");
                         continue;
                     }
 
@@ -164,7 +173,7 @@ namespace WaypointQueue
 
             if (waypointsUpdated)
             {
-                Loader.LogDebug($"Invoking OnWaypointsUpdated at end of coroutine");
+                Loader.LogDebug($"Invoking OnWaypointsUpdated at end of tick loop");
                 OnWaypointsUpdated?.Invoke();
             }
 
@@ -409,6 +418,12 @@ namespace WaypointQueue
         {
             Loader.LogDebug($"Resolving refuel");
             // maybe in the future, support refueling multiple locomotives if they are MU'd
+
+            waypoint.MaxSpeedAfterRefueling = ordersHelper.Orders.MaxSpeedMph;
+            // Set max speed of 5 to help prevent train from overrunning waypoint
+            int speedWhileRefueling = 5;
+            ordersHelper.SetOrdersValue(null, null, maxSpeedMph: speedWhileRefueling, null, null);
+
             Location locationToMove = GetRefuelLocation(waypoint, ordersHelper);
             SetCarLoadTargetLoaderCanLoad(waypoint, true);
             SendToWaypointFromRefuel(waypoint, locationToMove, ordersHelper);
@@ -491,6 +506,7 @@ namespace WaypointQueue
             List<string> validLoads = GetValidLoadsForLoco((BaseLocomotive)waypoint.Locomotive);
             CarLoadTargetLoader closestLoader = null;
             float shortestDistance = 0;
+            Loader.LogDebug($"Checking for nearby fuel loaders");
 
             foreach (CarLoadTargetLoader targetLoader in _carLoadTargetLoaders)
             {
@@ -511,8 +527,7 @@ namespace WaypointQueue
                     //Loader.LogDebug($"Failed to get location for target loader: {e}");
                     continue;
                 }
-                //Loader.LogDebug($"Target {targetLoader.load?.name} loader transform was not null");
-
+                Loader.LogDebug($"Target {targetLoader.load?.name} loader transform was not null");
 
                 if (hasLocation)
                 {
@@ -548,6 +563,10 @@ namespace WaypointQueue
                 waypoint.RefuelLoadName = closestLoader.load.name;
                 waypoint.WillRefuel = true;
             }
+            else
+            {
+                Loader.LogDebug($"No result found for fuel loader");
+        }
         }
 
         private void ResolveCouplingOrders(ManagedWaypoint waypoint)
@@ -873,6 +892,12 @@ namespace WaypointQueue
             if (_coroutine == null)
             {
                 Loader.LogDebug($"Starting waypoint coroutine in LoadWaypointSaveState");
+                _coroutine = StartCoroutine(Ticker());
+            }
+            else
+            {
+                Loader.LogDebug($"Restarting waypoint coroutine in LoadWaypointSaveState");
+                StopCoroutine(_coroutine);
                 _coroutine = StartCoroutine(Ticker());
             }
         }
