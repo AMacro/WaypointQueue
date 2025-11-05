@@ -68,12 +68,12 @@ namespace WaypointQueue
             _coroutine = null;
         }
 
-        public void InitCarLoaders()
+        public void InitCarLoaders(bool reload = false)
         {
-            if (_carLoadTargetLoaders == null || _carLoadTargetLoaders.Count <= 0)
+            if (reload || _carLoadTargetLoaders == null || _carLoadTargetLoaders.Count <= 0)
             {
-            Loader.LogDebug($"Initializing list of car load target loaders");
-            _carLoadTargetLoaders = FindObjectsOfType<CarLoadTargetLoader>().ToList();
+                Loader.LogDebug($"Initializing list of car load target loaders");
+                _carLoadTargetLoaders = FindObjectsOfType<CarLoadTargetLoader>().ToList();
             }
         }
 
@@ -484,7 +484,7 @@ namespace WaypointQueue
             {
                 distanceFromEndToSlot = -distanceFromEndToSlot;
             }
-            
+
             Location locationToMove = Graph.Shared.LocationByMoving(orientedTargetLocation, distanceFromEndToSlot, true, true);
 
             Loader.LogDebug($"Location to refuel {waypoint.RefuelLoadName} is {locationToMove}");
@@ -948,6 +948,9 @@ namespace WaypointQueue
             WaypointStateList = saveState.WaypointStates;
             Loader.LogDebug($"Invoking OnWaypointsUpdated in LoadWaypointSaveState");
             OnWaypointsUpdated?.Invoke();
+
+            _carLoadTargetLoaders = null;
+            InitCarLoaders();
 
             if (_coroutine == null)
             {
