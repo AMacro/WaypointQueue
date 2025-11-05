@@ -9,9 +9,6 @@ using UnityModManagerNet;
 
 namespace WaypointQueue.UUM
 {
-#if DEBUG
-    [EnableReloading]
-#endif
     public static class Loader
     {
         public static UnityModManager.ModEntry ModEntry { get; private set; }
@@ -33,45 +30,29 @@ namespace WaypointQueue.UUM
             Settings = UnityModManager.ModSettings.Load<WaypointQueueSettings>(modEntry);
             Messenger.Default.Register<MapDidLoadEvent>(modEntry, OnMapDidLoad);
             ModEntry.OnUnload = Unload;
-            ModEntry.OnToggle = OnToggle;
             ModEntry.OnGUI = OnGUI;
             ModEntry.OnSaveGUI = OnSaveGUI;
             ModEntry.OnUpdate = OnUpdate;
 
             HarmonyInstance = new Harmony(modEntry.Info.Id);
-            Harmony.DEBUG = true;
-            return true;
-        }
+            //Harmony.DEBUG = true;
 
-        public static bool OnToggle(UnityModManager.ModEntry modEntry, bool value)
-        {
-            if (value)
+            try
             {
-                try
+                HarmonyInstance.PatchAll(Assembly.GetExecutingAssembly());
+                var waypointQueueGO = new GameObject("WaypointQueue");
+                Instance = waypointQueueGO.AddComponent<WaypointQueueController>();
+                UnityEngine.Object.DontDestroyOnLoad(waypointQueueGO);
+                if (MapHasLoaded && WaypointWindow == null)
                 {
-                    HarmonyInstance.PatchAll(Assembly.GetExecutingAssembly());
-                    var waypointQueueGO = new GameObject("WaypointQueue");
-                    Instance = waypointQueueGO.AddComponent<WaypointQueueController>();
-                    UnityEngine.Object.DontDestroyOnLoad(waypointQueueGO);
-                    if (MapHasLoaded && WaypointWindow == null)
-                    {
-                        InitWindow();
-                    }
-                }
-                catch (Exception ex)
-                {
-                    modEntry.Logger.LogException($"Failed to load {modEntry.Info.DisplayName}:", ex);
-                    HarmonyInstance?.UnpatchAll(modEntry.Info.Id);
-                    if (Instance != null) UnityEngine.Object.DestroyImmediate(Instance.gameObject);
-                    Instance = null;
-                    if (WaypointWindow != null) UnityEngine.Object.DestroyImmediate(WaypointWindow.gameObject);
-                    WaypointWindow = null;
-                    return false;
+                    InitWindow();
                 }
             }
-            else
+            catch (Exception ex)
             {
+                modEntry.Logger.LogException($"Failed to load {modEntry.Info.DisplayName}:", ex);
                 Unload(modEntry);
+                return false;
             }
 
             return true;
@@ -90,6 +71,8 @@ namespace WaypointQueue.UUM
             HarmonyInstance.UnpatchAll(modEntry.Info.Id);
             if (Instance != null) UnityEngine.Object.DestroyImmediate(Instance.gameObject);
             Instance = null;
+            if (WaypointWindow != null) UnityEngine.Object.DestroyImmediate(WaypointWindow.gameObject);
+            WaypointWindow = null;
             return true;
         }
 
