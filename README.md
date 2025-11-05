@@ -9,7 +9,7 @@
 1. Download the latest release
 2. Open UMM Installer and make sure you have Railroader selected
 3. Click the Mods tab
-4. Drag and drop the `WaypointQueue.zip` file into UMM
+4. Drag and drop the `WaypointQueue_versionNumber.zip` file into UMM
 5. Start up the game
 
 
@@ -24,12 +24,12 @@ All the keybinds are reconfigurable using the UMM Mod Settings menu which you ca
 ### Key concepts
 
 - **Queue a waypoint** by holding Ctrl while selecting a waypoint.
-- Placing a normal waypoint without Ctrl pressed will clear the locomotive's waypoint queue.
+- Placing a normal waypoint without Ctrl pressed will clear the locomotive's current waypoint queue.
 - **Manage waypoints** for the currently selected locomotive by opening the Waypoints window with Shift+G.
 - The Waypoints window has many advanced features to handle complex orders like switching.
-- **Jump to waypoint** by clicking the gear icon for that waypoint in the new window.
+- **Jump to a waypoint** by clicking the gear icon for that waypoint in the new window and selecting Jump to waypoint.
 - **Replace the current waypoint** without clearing the rest of the queue by holding Alt instead of Ctrl.
-- **Delete a waypoint** by clicking the gear icon, or delete all waypoints for the sel
+- **Delete a waypoint** by clicking the gear icon for that waypoint and selecting Delete. You can also delete all waypoints for the selected locomotive by using the top right gear icon.
 
 ### Coupling and uncoupling
 - **Uncouple cars at a waypoint** by adjusting the number of cars to uncouple and from which direction to count cars.
@@ -39,6 +39,7 @@ All the keybinds are reconfigurable using the UMM Mod Settings menu which you ca
 
 ### Refueling
 - **Refuel locomotives** by selecting a waypoint close to a valid water tower, coaling station, or diesel pump.
+- MU locomotive set ups are not currently supported for automatic refueling, but this is a planned feature.
 - Currently, the loaders will not animate, but they will transfer loads from storage to the locomotive correctly.
 
 ### Advanced features
