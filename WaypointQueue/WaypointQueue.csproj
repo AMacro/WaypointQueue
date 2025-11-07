@@ -132,6 +132,9 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="PatchPopulateOperationsPanel.cs" />
+    <Compile Include="RouteAssignmentRegistry.cs" />
+    <Compile Include="RouteAssignmentSaveManager.cs" />
     <Compile Include="RouteDefinition.cs" />
     <Compile Include="RouteManagerWindow.cs" />
     <Compile Include="LocoWaypointState.cs" />

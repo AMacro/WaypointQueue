@@ -71,28 +71,24 @@ namespace WaypointQueue.UUM
             {
                 WaypointWindow.Toggle();
             }
+
             if (Settings.toggleRoutesPanelKey.Down())
             {
-                if (RouteManagerWindow == null)
+                // Try to get existing instance
+                var win = WindowManager.Shared.GetWindow<RouteManagerWindow>();
+                if (win == null)
                 {
-                    RouteManagerWindow = WindowManager.Shared.GetWindow<RouteManagerWindow>();
-
-                    if (RouteManagerWindow == null)
-                    {
-                        WindowHelper.CreateWindow<RouteManagerWindow>(null);
-                        RouteManagerWindow = WindowManager.Shared.GetWindow<RouteManagerWindow>();
-                    }
-
-                    if (RouteManagerWindow != null)
-                    {
-                        RouteManagerWindow.Show();
-                    }
+                    // Create once, then fetch that same instance
+                    WindowHelper.CreateWindow<RouteManagerWindow>(null);
+                    win = WindowManager.Shared.GetWindow<RouteManagerWindow>();
                 }
-                else
-                {
-                    RouteManagerWindow.Toggle();
-                }
+
+                // Toggle the existing instance
+                win.Toggle();
             }
+
+            // NEW: flush debounced saves for route assignments
+            RouteAssignmentSaveManager.Update(delta);
         }
 
         private static bool Unload(UnityModManager.ModEntry modEntry)
@@ -126,6 +122,8 @@ namespace WaypointQueue.UUM
             MapHasLoaded = true;
 
             RouteRegistry.ReloadFromDisk();
+
+            RouteAssignmentSaveManager.ReloadFromDisk();
 
             InitWindows();
         }

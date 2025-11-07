@@ -34,6 +34,7 @@ namespace WaypointQueue
         public string RefuelLoadName { get; set; }
         public float RefuelMaxCapacity { get; set; }
         public bool WillRefuel { get; set; }
+        public string TimetableSymbol { get; set; }
 
         public ManagedWaypoint ToManagedWaypoint(Model.Car locomotive)
         {
@@ -55,6 +56,7 @@ namespace WaypointQueue
             mw.RefuelLoadName = RefuelLoadName;
             mw.RefuelMaxCapacity = RefuelMaxCapacity;
             mw.WillRefuel = WillRefuel;
+            mw.TimetableSymbol = TimetableSymbol;
             return mw;
         }
 
@@ -76,7 +78,8 @@ namespace WaypointQueue
                 RefuelIndustryId = mw.RefuelIndustryId,
                 RefuelLoadName = mw.RefuelLoadName,
                 RefuelMaxCapacity = mw.RefuelMaxCapacity,
-                WillRefuel = mw.WillRefuel
+                WillRefuel = mw.WillRefuel,
+                TimetableSymbol = mw.TimetableSymbol
             };
         }
     }

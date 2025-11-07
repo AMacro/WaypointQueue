@@ -13,6 +13,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using Track;
+using UI.Common;
 using UI.EngineControls;
 using UnityEngine;
 using WaypointQueue.UUM;
@@ -166,6 +167,20 @@ namespace WaypointQueue
                 // Mark if empty
                 if (waypointList.Count == 0)
                 {
+                    var (assignedRouteId, loop) = RouteAssignmentRegistry.Get(entry.Locomotive.id);
+                    if (loop && !string.IsNullOrEmpty(assignedRouteId))
+                    {
+                        var assignedRoute = RouteRegistry.GetById(assignedRouteId);
+                        if (assignedRoute != null)
+                        {
+                            Loader.Log($"[WaypointQueue] Loco {entry.Locomotive.Ident}: queue empty & looping enabled → reassigning route '{assignedRoute.Name}' (apply mode).");
+                            // Re-apply the saved route in APPLY mode (append: false)
+                            AssignRouteToLoco(assignedRoute, entry.Locomotive, append: false);
+
+                            // After reassigning, continue to next loco without marking for removal
+                            continue;
+                        }
+                    }
                     Loader.Log($"Marking {entry.Locomotive.Ident} waypoint queue for removal");
                     listForRemoval.Add(entry);
                 }
@@ -182,6 +197,7 @@ namespace WaypointQueue
 
             if (WaypointStateList.Count == 0)
             {
+
                 Loader.Log("Stopping coroutine because queue list is empty");
                 Stop();
             }
@@ -916,6 +932,7 @@ namespace WaypointQueue
         private void SendToWaypointFromQueue(ManagedWaypoint waypoint, AutoEngineerOrdersHelper ordersHelper)
         {
             Loader.Log($"Sending next waypoint for {waypoint.Locomotive.Ident} to {waypoint.Location}");
+            ApplyTimetableSymbolIfRequested(waypoint);
             (Location, string)? maybeWaypoint = (waypoint.Location, waypoint.CoupleToCarId);
             ordersHelper.SetOrdersValue(null, null, null, null, maybeWaypoint);
         }
@@ -923,6 +940,7 @@ namespace WaypointQueue
         private void SendToWaypointFromRefuel(ManagedWaypoint waypoint, Location refuelLocation, AutoEngineerOrdersHelper ordersHelper)
         {
             Loader.Log($"Sending refueling waypoint for {waypoint.Locomotive.Ident} to {refuelLocation}");
+            ApplyTimetableSymbolIfRequested(waypoint);
             (Location, string)? maybeWaypoint = (refuelLocation, null);
             ordersHelper.SetOrdersValue(null, null, null, null, maybeWaypoint);
         }
@@ -992,6 +1010,7 @@ namespace WaypointQueue
                     last.RefuelLoadName = mw.RefuelLoadName;
                     last.RefuelMaxCapacity = mw.RefuelMaxCapacity;
                     last.WillRefuel = mw.WillRefuel;
+                    last.TimetableSymbol = mw.TimetableSymbol;
 
                     UpdateWaypoint(last);
                 }
@@ -1006,6 +1025,33 @@ namespace WaypointQueue
                 foreach (var mw in list)
                     route.Waypoints.Add(RouteWaypoint.FromManagedWaypoint(mw));
             return route;
+        }
+
+        private void ApplyTimetableSymbolIfRequested(ManagedWaypoint waypoint)
+        {
+            if (waypoint.TimetableSymbol == null) return;
+
+            string valueToSet = string.IsNullOrEmpty(waypoint.TimetableSymbol) ? null : waypoint.TimetableSymbol;
+
+            string crewId = waypoint.Locomotive?.trainCrewId;
+
+            if (string.IsNullOrEmpty(crewId))
+            {
+                var ident = (waypoint.Locomotive != null)
+                    ? waypoint.Locomotive.Ident.ToString()
+                    : "This locomotive";
+
+                ModalAlertController.Present(
+                    "No crew assigned to train",
+                    $"{ident} has no crew. Assign a crew to use timetable symbols.",
+                    new (bool, string)[] { (true, "OK") },
+                    _ => { }
+                );
+                return;
+            }
+
+            StateManager.ApplyLocal(new RequestSetTrainCrewTimetableSymbol(crewId, valueToSet));
+            Loader.Log($"[Timetable] {(valueToSet ?? "None")} for {waypoint.Locomotive.Ident}");
         }
     }
 

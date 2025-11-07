@@ -1,6 +1,11 @@
 ﻿using Model;
+using Model.Ops;
+using Model.Ops.Timetable;
+using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
 using TMPro;
 using UI;
 using UI.Builder;
@@ -244,6 +249,22 @@ namespace WaypointQueue
             builder.AddField($"Destination", builder.HStack(delegate (UIPanelBuilder field)
             {
                 field.AddLabel(waypoint.AreaName?.Length > 0 ? waypoint.AreaName : "Unknown");
+
+                field.Spacer(4f);
+
+                // Right: "Set symbol" dropdown (No change / None / symbols…)
+                field.AddLabel("Symbol").Width(80f);
+
+                var (labels, values, selectedIndex) = BuildTimetableSymbolChoices(waypoint.TimetableSymbol);
+                field.AddDropdown(labels, selectedIndex, (int idx) =>
+                {
+                    // Map: 0 = No change (null), 1 = None (""), 2+ = actual symbol names
+                    waypoint.TimetableSymbol = values[idx];                 // null or "" or actual symbol
+                    WaypointQueueController.Shared.UpdateWaypoint(waypoint); // persist/update UI
+                })
+                .Width(200)
+                .Height(10f); 
+
             }));
 
             if (waypoint.IsCoupling)
@@ -401,6 +422,53 @@ namespace WaypointQueue
         private void JumpCameraToWaypoint(ManagedWaypoint waypoint)
         {
             CameraSelector.shared.JumpToPoint(waypoint.Location.GetPosition(), waypoint.Location.GetRotation(), CameraSelector.CameraIdentifier.Strategy);
+        }
+
+        private static (List<string> labels, List<string> values, int selected) BuildTimetableSymbolChoices(string current)
+        {
+            // 0 = "No change" → do nothing
+            var labels = new List<string> { "No change" };
+            var values = new List<string> { null };
+
+            try
+            {
+                var timetable = TimetableController.Shared?.Current; // active timetable
+                if (timetable?.Trains != null && timetable.Trains.Count > 0)
+                {
+                    // Sort by SortName; store actual symbol in values = Train.Name
+                    var rows = timetable.Trains
+                        .Values
+                        .Where(t => !string.IsNullOrEmpty(t.Name))
+                        .OrderBy(t => t.SortName)
+                        .Select(t => t.Name)
+                        .ToList();
+
+                    foreach (var sym in rows)
+                    {
+                        labels.Add(sym);   // display plain symbol
+                        values.Add(sym);   // value = symbol
+                    }
+
+                    Loader.LogDebug($"[TimetableSymbolDropdown] Loaded {rows.Count} symbols from TimetableController.Current.");
+                }
+                else
+                {
+                    Loader.LogDebug("[TimetableSymbolDropdown] TimetableController.Current is null or has no trains.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Loader.Log($"[TimetableSymbolDropdown] Error building choices: {ex}");
+            }
+
+            // Selected index: default to "No change" (0); if current is set, select it if present
+            int selected = 0;
+            if (!string.IsNullOrEmpty(current))
+            {
+                int idx = values.IndexOf(current);
+                if (idx >= 0) selected = idx;
+            }
+            return (labels, values, selected);
         }
     }
 }
