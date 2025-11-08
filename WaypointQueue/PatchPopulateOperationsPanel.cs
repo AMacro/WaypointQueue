@@ -14,15 +14,16 @@ namespace WaypointQueue
     [HarmonyPatch(typeof(CarInspector), "PopulateOperationsPanel")]
     internal static class PatchPopulateOperationsPanel
     {
-        static void Postfix(CarInspector __instance, UIPanelBuilder builder, ref Car ___car)
+        static void Postfix(CarInspector __instance, UIPanelBuilder builder)
         {
-            var car = ___car;
+            // Access the current car
+            var carField = typeof(CarInspector).GetField("_car", BindingFlags.NonPublic | BindingFlags.Instance);
+            var car = carField?.GetValue(__instance) as Car;
             if (car == null) return;
 
+            var carID = car.id;
             // Only for locomotives
             if (!car.Archetype.IsLocomotive()) return;
-
-            var carID = car.id;
 
             builder.Spacer(2f);
 
