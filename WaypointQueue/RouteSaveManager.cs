@@ -7,11 +7,11 @@ using WaypointQueue.UUM;
 
 namespace WaypointQueue
 {
-    /// <summary>
-    /// Saves/loads one file per route inside {Application.persistentDataPath}/Routes
-    /// File schema: { Id, Name, Waypoints[] }
-    /// Filename: {SanitizedName}_{Id}.route.json  (Id prevents collisions across renames)
-    /// </summary>
+    
+    
+    
+    
+    
     public static class RouteSaveManager
     {
         private static readonly string RoutesPath =
@@ -118,7 +118,7 @@ namespace WaypointQueue
             Loader.Log($"[Routes] Renamed to '{route.Name}' → {route.FilePath}");
         }
 
-        // ---------- helpers ----------
+        
         private static string PathFor(RouteDefinition route)
         {
             var dir = GetRoutesDirectory();

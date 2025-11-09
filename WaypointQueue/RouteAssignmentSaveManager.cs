@@ -52,7 +52,7 @@ namespace WaypointQueue
                 var path = PathFor(saveName);
                 if (!File.Exists(path))
                 {
-                    // no assignments for this save → clear
+                    
                     RouteAssignmentRegistry.ReplaceAll(null);
                     Loader.Log($"[RouteAssign] No assignments for save '{saveName}', cleared.");
                     return;

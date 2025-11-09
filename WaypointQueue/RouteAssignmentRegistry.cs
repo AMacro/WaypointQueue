@@ -8,7 +8,7 @@ namespace WaypointQueue
     public class RouteAssignment
     {
         public string LocoId;
-        public string RouteId; // null or "" means “no assigned route”
+        public string RouteId; 
         public bool Loop;
     }
 
@@ -18,7 +18,7 @@ namespace WaypointQueue
 
         public static event Action OnChanged;
 
-        // ---- Query API ----
+        
         public static (string routeId, bool loop) Get(string locoId)
         {
             if (string.IsNullOrEmpty(locoId)) return (null, false);
@@ -35,7 +35,7 @@ namespace WaypointQueue
 
         public static List<RouteAssignment> All() => _byLocoId.Values.ToList();
 
-        // ---- Mutation API (fires OnChanged) ----
+        
         public static void Set(string locoId, string routeId, bool loop)
         {
             if (string.IsNullOrEmpty(locoId)) return;
@@ -66,7 +66,7 @@ namespace WaypointQueue
             OnChanged?.Invoke();
         }
 
-        // ---- Bulk load/replace used by SaveManager ----
+        
         public static void ReplaceAll(IEnumerable<RouteAssignment> items)
         {
             _byLocoId.Clear();

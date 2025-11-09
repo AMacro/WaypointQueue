@@ -11,10 +11,10 @@ namespace WaypointQueue
         public string Name { get; set; } = "New Route";
         public List<RouteWaypoint> Waypoints { get; set; } = new List<RouteWaypoint>();
 
-        [JsonIgnore] public string FilePath { get; set; }  // not serialized
+        [JsonIgnore] public string FilePath { get; set; }  
     }
 
-    // If you already created RouteWaypoint earlier, reuse it.
+    
     [Serializable]
     public class RouteWaypoint
     {

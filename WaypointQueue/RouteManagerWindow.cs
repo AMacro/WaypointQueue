@@ -90,10 +90,6 @@ namespace WaypointQueue
                     detail.Spacer(8f);
                     detail.ButtonStrip(row =>
                     {
-                        // push what follows to the right
-                        
-
-                        // 1) replace route with loco
                         row.AddButton("Replace from Loco", () =>
                         {
                             SetFromSelectedLoco(route);
@@ -132,10 +128,10 @@ namespace WaypointQueue
                             {
                                 switch (v)
                                 {
-                                    case 0: // refresh
+                                    case 0: 
                                         RebuildWithScrolls();
                                         break;
-                                    case 1: // delete all
+                                    case 1: 
                                         PresentDeleteAllModal(route);
                                         break;
                                 }
@@ -157,7 +153,6 @@ namespace WaypointQueue
 
             builder.Spacer(12f);
 
-            // Bottom bar: New / Save / Delete / Reload
             builder.ButtonStrip(row =>
             {
                 row.AddButton("New Route", () =>
@@ -187,7 +182,7 @@ namespace WaypointQueue
             }
             catch
             {
-                loc = default; // valid zero-initialized Location struct
+                loc = default; 
                 return false;
             }
         }
@@ -220,7 +215,7 @@ namespace WaypointQueue
             builder.AddHRule();
             builder.Spacer(16f);
 
-            // Header row: Waypoint N + options
+            
             builder.HStack(row =>
             {
                 row.AddLabel($"Waypoint {number}");
@@ -244,7 +239,7 @@ namespace WaypointQueue
                 row.Spacer(8f);
             });
 
-            // Destination + Symbol (identical spacing/sizing to WaypointWindow)
+            
             builder.AddField("Destination", builder.HStack(field =>
             {
                 field.AddLabel(GetAreaName(rwp)).Width(160f);
@@ -255,7 +250,7 @@ namespace WaypointQueue
                 var (labels, values, selectedIndex) = BuildTimetableSymbolChoices(rwp.TimetableSymbol);
                 field.AddDropdown(labels, selectedIndex, (int idx) =>
                 {
-                    // values[idx] is null for "— no change —", or the actual symbol
+                    
                     rwp.TimetableSymbol = values[idx];
                     SaveAndRebuild(route);
                 })
@@ -267,7 +262,7 @@ namespace WaypointQueue
 
             if (isCoupling)
             {
-                // "Couple to" line
+                
                 if (TrainController.Shared.TryGetCarForId(rwp.CoupleToCarId, out Car couplingToCar))
                 {
                     builder.AddField("Couple to ", builder.HStack(field =>
@@ -283,7 +278,7 @@ namespace WaypointQueue
                     }));
                 }
 
-                // Connect air / Release handbrakes toggles
+                
                 if (Loader.Settings.UseCompactLayout)
                 {
                     builder.HStack(inner => { AddConnectAirAndReleaseBrakeToggles(rwp, inner, route); });
@@ -293,7 +288,7 @@ namespace WaypointQueue
                     AddConnectAirAndReleaseBrakeToggles(rwp, builder, route);
                 }
 
-                // Post-coupling cut block
+                
                 builder.AddField("Post-coupling cut", builder.HStack(field =>
                 {
                     string prefix = rwp.TakeOrLeaveCut == ManagedWaypoint.PostCoupleCutType.Take ? "Take " : "Leave ";
@@ -322,7 +317,7 @@ namespace WaypointQueue
             }
             else
             {
-                // Uncouple row with +/- controls
+                
                 builder.HStack(row =>
                 {
                     row.AddField("Uncouple", row.HStack(field =>
@@ -365,7 +360,7 @@ namespace WaypointQueue
                 }
             }
 
-            // Refuel (same style)
+            
             if (!string.IsNullOrEmpty(rwp.RefuelLoadName))
             {
                 builder.AddField($"Refuel {rwp.RefuelLoadName}", builder.AddToggle(
@@ -378,7 +373,7 @@ namespace WaypointQueue
             }
         }
 
-        // ---------- UI helpers for toggles/buttons (RouteWaypoint variants) ----------
+        
         private void AddConnectAirAndReleaseBrakeToggles(RouteWaypoint rwp, UIPanelBuilder builder, RouteDefinition route)
         {
             builder.AddField("Connect air", builder.AddToggle(() => rwp.ConnectAirOnCouple, (bool value) =>
@@ -436,7 +431,7 @@ namespace WaypointQueue
             return offsetAmount;
         }
 
-        // ---------- Conversions & actions ----------
+        
         private RouteWaypoint FromManagedWaypoint(ManagedWaypoint mw)
         {
             return new RouteWaypoint
@@ -479,7 +474,7 @@ namespace WaypointQueue
                     WaypointQueueController.Shared.AddWaypoint(loco, location, rw.CoupleToCarId, isReplacing: false);
                 }
 
-                // copy flags onto the newly-added queue item (last)
+                
                 var list = WaypointQueueController.Shared.GetWaypointList(loco);
                 if (list != null && list.Count > 0)
                 {
@@ -543,11 +538,11 @@ namespace WaypointQueue
             }
             catch
             {
-                // ignore bad location strings
+                
             }
         }
 
-        // Build dropdown choices exactly like WaypointWindow (reuse your existing logic if you already have it)
+        
         private static (List<string> labels, List<string> values, int selectedIndex)
         BuildTimetableSymbolChoices(string current)
         {
@@ -555,7 +550,7 @@ namespace WaypointQueue
             var values = new List<string>();
             int selected = 0;
 
-            // First entry: no change
+            
             labels.Add("— no change —");
             values.Add(null);
 
@@ -570,7 +565,7 @@ namespace WaypointQueue
                 {
                     var sym = kv.Key;
                     var train = kv.Value;
-                    string label = train.DisplayStringLong; // e.g., "123 E - Freight 1st"
+                    string label = train.DisplayStringLong; 
                     labels.Add(label);
                     values.Add(sym);
                     if (!string.IsNullOrEmpty(current) && current == sym)
@@ -588,12 +583,12 @@ namespace WaypointQueue
 
         private void OnRouteUpdated()
         {
-            //Loader.LogDebug($"WaypointWindow OnWaypointsUpdated");
+            
             RebuildWithScrolls();
         }
         private void RebuildWithScrolls()
         {
-            // 1. grab all current scroll rects
+            
             var scrollRects = Window.contentRectTransform.GetComponentsInChildren<ScrollRect>(true);
 
             _scrollPositions.Clear();
@@ -602,10 +597,10 @@ namespace WaypointQueue
                 _scrollPositions.Add(sr.verticalNormalizedPosition);
             }
 
-            // 2. rebuild whole window
+            
             Rebuild();
 
-            // 3. restore on next frame
+            
             Invoke(nameof(RestoreScrolls), 0f);
         }
 
@@ -616,7 +611,7 @@ namespace WaypointQueue
             var count = Mathf.Min(scrollRects.Length, _scrollPositions.Count);
             for (int i = 0; i < count; i++)
             {
-                // clamp just in case content size changed a little
+                
                 scrollRects[i].verticalNormalizedPosition = Mathf.Clamp01(_scrollPositions[i]);
             }
         }

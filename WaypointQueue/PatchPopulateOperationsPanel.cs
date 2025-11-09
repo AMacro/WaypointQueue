@@ -2,10 +2,10 @@
 using System.Reflection;
 using HarmonyLib;
 using UI.Builder;
-using WaypointQueue;          // RouteRegistry, RouteManagerWindow, RouteAssignmentRegistry
-using WaypointQueue.UUM;     // WindowHelper
-using Model;                 // Car
-using Model.Definition;      // CarArchetypeExtensions.IsLocomotive()
+using WaypointQueue;          
+using WaypointQueue.UUM;     
+using Model;                 
+using Model.Definition;      
 using UI.CarInspector;
 using UI.Common;
 
@@ -16,12 +16,12 @@ namespace WaypointQueue
     {
         static void Postfix(CarInspector __instance, UIPanelBuilder builder, ref Car ____car)
         {
-            // Access the current car
+            
             var car = ____car;
             if (car == null) return;
 
             var carID = car.id;
-            // Only for locomotives
+            
             if (!car.Archetype.IsLocomotive()) return;
 
             builder.Spacer(2f);
@@ -30,22 +30,22 @@ namespace WaypointQueue
             {
                 var routes = RouteRegistry.Routes;
 
-                // Build display list with a placeholder at index 0
+                
                 var names = new System.Collections.Generic.List<string> { "(select route)" };
                 names.AddRange(routes.Select(r => r.Name));
 
-                // Read current assignment from registry
-                var (currentRouteId, currentLoop) = RouteAssignmentRegistry.Get(carID);  // :contentReference[oaicite:2]{index=2}
+                
+                var (currentRouteId, currentLoop) = RouteAssignmentRegistry.Get(carID); 
 
-                // Calculate selected index (0 = placeholder)
+                
                 int selectedIndex = 0;
                 if (!string.IsNullOrEmpty(currentRouteId))
                 {
                     int idx = routes.FindIndex(r => r.Id == currentRouteId);
-                    if (idx >= 0) selectedIndex = idx + 1; // shift because of placeholder
+                    if (idx >= 0) selectedIndex = idx + 1; 
                 }
 
-                // Row: "Route" label, dropdown, and "Show" button inline
+                
                 section.HStack(row =>
                 {
                     row.AddLabel("Route").Width(75f);
@@ -55,7 +55,7 @@ namespace WaypointQueue
                         selectedIndex,
                         (int newIdx) =>
                         {
-                            // Map selection back to routeId (or null)
+                            
                             string newRouteId = null;
                             if (newIdx > 0)
                             {
@@ -64,11 +64,11 @@ namespace WaypointQueue
                                     newRouteId = routes[routeIdx].Id;
                             }
 
-                            // Preserve existing loop flag; write through the registry so it persists
+                            
                             var (_, prevLoop) = RouteAssignmentRegistry.Get(carID);
-                            RouteAssignmentRegistry.Set(carID, newRouteId, prevLoop);  // :contentReference[oaicite:3]{index=3}
+                            RouteAssignmentRegistry.Set(carID, newRouteId, prevLoop);  
 
-                            // Refresh the UI so the Loop toggle visibility updates immediately
+                            
                             section.Rebuild();
                         });
                     dd.Width(240f);
@@ -89,18 +89,18 @@ namespace WaypointQueue
 
                 section.Spacer(6f);
 
-                // Only show Loop when a route is actually selected
+                
                 if (!string.IsNullOrEmpty(currentRouteId))
                 {
                     section.HStack(loopRow =>
                     {
                         loopRow.AddToggle(
-                            () => RouteAssignmentRegistry.Get(carID).loop,   // live read
+                            () => RouteAssignmentRegistry.Get(carID).loop,   
                             (bool v) =>
                             {
-                                // Preserve current route; update loop; persist via registry
+                                
                                 var (rid, _) = RouteAssignmentRegistry.Get(carID);
-                                RouteAssignmentRegistry.Set(carID, rid, v);   // :contentReference[oaicite:4]{index=4}
+                                RouteAssignmentRegistry.Set(carID, rid, v);   
                             });
                         loopRow.AddLabel("Loop");
                     });
