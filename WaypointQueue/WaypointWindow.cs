@@ -248,7 +248,7 @@ namespace WaypointQueue
 
             builder.AddField($"Destination", builder.HStack(delegate (UIPanelBuilder field)
             {
-                field.AddLabel(waypoint.AreaName?.Length > 0 ? waypoint.AreaName : "Unknown");
+                field.AddLabel(waypoint.AreaName?.Length > 0 ? waypoint.AreaName : "Unknown").Width(160f);
 
                 field.Spacer(4f);
 

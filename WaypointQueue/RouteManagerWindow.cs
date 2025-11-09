@@ -15,6 +15,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using WaypointQueue.UUM;
 
+
 namespace WaypointQueue
 {
     [RequireComponent(typeof(Window))]
@@ -29,6 +30,8 @@ namespace WaypointQueue
         public static RouteManagerWindow Shared => WindowManager.Shared.GetWindow<RouteManagerWindow>();
 
         private readonly UIState<string> _selectedRouteId = new UIState<string>(null);
+        private readonly List<float> _scrollPositions = new List<float>();
+
 
         private void OnEnable()
         {
@@ -81,27 +84,29 @@ namespace WaypointQueue
                     detail.AddField("Name", detail.AddInputField(route.Name, newName =>
                     {
                         RouteRegistry.Rename(route, newName, moveFile: true);
-                        detail.Rebuild();
+                        RebuildWithScrolls();
                     }, placeholder: "Route name"));
 
                     detail.Spacer(8f);
                     detail.ButtonStrip(row =>
                     {
-                        row.AddButton("Capture from Selected Loco", () =>
+                        // push what follows to the right
+                        
+
+                        // 1) replace route with loco
+                        row.AddButton("Replace from Loco", () =>
                         {
-                            var loco = TrainController.Shared.SelectedLocomotive;
-                            if (loco == null) return;
-                            var list = WaypointQueueController.Shared.GetWaypointList(loco);
-                            route.Waypoints.Clear();
-                            if (list != null)
-                            {
-                                foreach (var mw in list)
-                                    route.Waypoints.Add(FromManagedWaypoint(mw));
-                            }
-                            RouteRegistry.Save(route);
-                            detail.Rebuild();
+                            SetFromSelectedLoco(route);
                         });
-                        row.AddButton("Assign → Append", () => AssignToSelectedLoco(route, append: true));
+
+                        row.AddButton("Add from Loco", () =>
+                        {
+                            AppendFromSelectedLoco(route);
+                        });
+
+                        row.Spacer();
+
+                        row.AddButton("Copy to Loco", () => AssignToSelectedLoco(route, append: true));
                     });
 
                     detail.Spacer(12f);
@@ -128,7 +133,7 @@ namespace WaypointQueue
                                 switch (v)
                                 {
                                     case 0: // refresh
-                                        detail.Rebuild();
+                                        RebuildWithScrolls();
                                         break;
                                     case 1: // delete all
                                         PresentDeleteAllModal(route);
@@ -160,13 +165,7 @@ namespace WaypointQueue
                     var r = new RouteDefinition { Name = $"Route {RouteRegistry.Routes.Count + 1}" };
                     RouteRegistry.Add(r, save: true);
                     _selectedRouteId.Value = r.Id;
-                    builder.Rebuild();
-                });
-
-                row.AddButton("Save", () =>
-                {
-                    var r = RouteRegistry.GetById(_selectedRouteId.Value);
-                    if (r != null) RouteRegistry.Save(r);
+                    RebuildWithScrolls();
                 });
 
                 row.AddButton("Delete", () =>
@@ -174,18 +173,7 @@ namespace WaypointQueue
                     if (string.IsNullOrEmpty(_selectedRouteId.Value)) return;
                     RouteRegistry.Remove(_selectedRouteId.Value, deleteFile: true);
                     _selectedRouteId.Value = RouteRegistry.Routes.FirstOrDefault()?.Id;
-                    builder.Rebuild();
-                });
-
-                row.Spacer();
-
-                row.AddButton("Reload", () =>
-                {
-                    var keep = _selectedRouteId.Value;
-                    RouteRegistry.ReloadFromDisk();
-                    if (RouteRegistry.GetById(keep) == null)
-                        _selectedRouteId.Value = RouteRegistry.Routes.FirstOrDefault()?.Id;
-                    builder.Rebuild();
+                    RebuildWithScrolls();
                 });
             });
         }
@@ -222,8 +210,7 @@ namespace WaypointQueue
                     if (b)
                     {
                         route.Waypoints.Clear();
-                        RouteRegistry.Save(route);
-                        Rebuild();
+                        SaveAndRebuild(route);
                     }
                 });
         }
@@ -250,8 +237,7 @@ namespace WaypointQueue
                         case 0: JumpCameraToWaypoint(rwp); break;
                         case 1:
                             route.Waypoints.Remove(rwp);
-                            RouteRegistry.Save(route);
-                            Rebuild();
+                            SaveAndRebuild(route);
                             break;
                     }
                 });
@@ -261,7 +247,7 @@ namespace WaypointQueue
             // Destination + Symbol (identical spacing/sizing to WaypointWindow)
             builder.AddField("Destination", builder.HStack(field =>
             {
-                field.AddLabel(GetAreaName(rwp));
+                field.AddLabel(GetAreaName(rwp)).Width(160f);
                 field.Spacer(4f);
 
                 field.AddLabel("Symbol").Width(80f);
@@ -271,10 +257,10 @@ namespace WaypointQueue
                 {
                     // values[idx] is null for "— no change —", or the actual symbol
                     rwp.TimetableSymbol = values[idx];
-                    RouteRegistry.Save(route);
+                    SaveAndRebuild(route);
                 })
                 .Width(200f)
-                .Height(10f); // compact, matches your WaypointWindow visual
+                .Height(10f);
             }));
 
             bool isCoupling = !string.IsNullOrEmpty(rwp.CoupleToCarId);
@@ -317,7 +303,7 @@ namespace WaypointQueue
                         rwp.TakeOrLeaveCut = rwp.TakeOrLeaveCut == ManagedWaypoint.PostCoupleCutType.Take
                             ? ManagedWaypoint.PostCoupleCutType.Leave
                             : ManagedWaypoint.PostCoupleCutType.Take;
-                        RouteRegistry.Save(route);
+                        SaveAndRebuild(route);
                     });
                     field.Spacer(8f);
                 }))
@@ -353,7 +339,7 @@ namespace WaypointQueue
                             rwp.CountUncoupledFromNearestToWaypoint ? 0 : 1, (int value) =>
                             {
                                 rwp.CountUncoupledFromNearestToWaypoint = !rwp.CountUncoupledFromNearestToWaypoint;
-                                RouteRegistry.Save(route);
+                                SaveAndRebuild(route);
                             }));
 
                     if (Loader.Settings.UseCompactLayout)
@@ -366,7 +352,7 @@ namespace WaypointQueue
                         (bool value) =>
                         {
                             rwp.TakeUncoupledCarsAsActiveCut = value;
-                            RouteRegistry.Save(route);
+                            SaveAndRebuild(route);
                         }))
                     .Tooltip("Take active cut",
                              "If this is active, the number of cars to uncouple will still be part of the active train. " +
@@ -387,7 +373,7 @@ namespace WaypointQueue
                     (bool value) =>
                     {
                         rwp.WillRefuel = value;
-                        RouteRegistry.Save(route);
+                        SaveAndRebuild(route);
                     }));
             }
         }
@@ -398,13 +384,13 @@ namespace WaypointQueue
             builder.AddField("Connect air", builder.AddToggle(() => rwp.ConnectAirOnCouple, (bool value) =>
             {
                 rwp.ConnectAirOnCouple = value;
-                RouteRegistry.Save(route);
+                SaveAndRebuild(route);
             }));
 
             builder.AddField("Release handbrakes", builder.AddToggle(() => rwp.ReleaseHandbrakesOnCouple, (bool value) =>
             {
                 rwp.ReleaseHandbrakesOnCouple = value;
-                RouteRegistry.Save(route);
+                SaveAndRebuild(route);
             }));
         }
 
@@ -413,13 +399,13 @@ namespace WaypointQueue
             builder.AddField("Bleed air", builder.AddToggle(() => rwp.BleedAirOnUncouple, (bool value) =>
             {
                 rwp.BleedAirOnUncouple = value;
-                RouteRegistry.Save(route);
+                SaveAndRebuild(route);
             }, interactable: rwp.NumberOfCarsToCut > 0));
 
             builder.AddField("Apply handbrakes", builder.AddToggle(() => rwp.ApplyHandbrakesOnUncouple, (bool value) =>
             {
                 rwp.ApplyHandbrakesOnUncouple = value;
-                RouteRegistry.Save(route);
+                SaveAndRebuild(route);
             }, interactable: rwp.NumberOfCarsToCut > 0));
         }
 
@@ -432,15 +418,13 @@ namespace WaypointQueue
             {
                 int result = Mathf.Max(rwp.NumberOfCarsToCut - GetOffsetAmount(), 0);
                 rwp.NumberOfCarsToCut = result;
-                RouteRegistry.Save(route);
-                Rebuild();
+                SaveAndRebuild(route);
 
             }).Disable(rwp.NumberOfCarsToCut <= 0).Width(24f);
             field.AddButtonCompact("+", () =>
             {
                 rwp.NumberOfCarsToCut += GetOffsetAmount();
-                RouteRegistry.Save(route);
-                Rebuild();
+                SaveAndRebuild(route);
             }).Width(24f);
         }
 
@@ -521,6 +505,32 @@ namespace WaypointQueue
                 }
             }
         }
+        private void SetFromSelectedLoco(RouteDefinition route)
+        {
+            var loco = TrainController.Shared.SelectedLocomotive;
+            if (loco == null) return;
+            var list = WaypointQueueController.Shared.GetWaypointList(loco);
+            route.Waypoints.Clear();
+            if (list != null)
+            {
+                foreach (var mw in list)
+                    route.Waypoints.Add(FromManagedWaypoint(mw));
+            }
+            SaveAndRebuild(route);
+        }
+        private void AppendFromSelectedLoco(RouteDefinition route)
+        {
+            var loco = TrainController.Shared.SelectedLocomotive;
+            if (loco == null || route == null) return;
+
+            var list = WaypointQueueController.Shared.GetWaypointList(loco);
+            if (list == null || list.Count == 0) return;
+
+            foreach (var mw in list)
+                route.Waypoints.Add(FromManagedWaypoint(mw));
+
+            SaveAndRebuild(route);
+        }
 
         private void JumpCameraToWaypoint(RouteWaypoint rwp)
         {
@@ -574,6 +584,49 @@ namespace WaypointQueue
             }
 
             return (labels, values, selected);
+        }
+
+        private void OnRouteUpdated()
+        {
+            //Loader.LogDebug($"WaypointWindow OnWaypointsUpdated");
+            RebuildWithScrolls();
+        }
+        private void RebuildWithScrolls()
+        {
+            // 1. grab all current scroll rects
+            var scrollRects = Window.contentRectTransform.GetComponentsInChildren<ScrollRect>(true);
+
+            _scrollPositions.Clear();
+            foreach (var sr in scrollRects)
+            {
+                _scrollPositions.Add(sr.verticalNormalizedPosition);
+            }
+
+            // 2. rebuild whole window
+            Rebuild();
+
+            // 3. restore on next frame
+            Invoke(nameof(RestoreScrolls), 0f);
+        }
+
+        private void RestoreScrolls()
+        {
+            var scrollRects = Window.contentRectTransform.GetComponentsInChildren<ScrollRect>(true);
+
+            var count = Mathf.Min(scrollRects.Length, _scrollPositions.Count);
+            for (int i = 0; i < count; i++)
+            {
+                // clamp just in case content size changed a little
+                scrollRects[i].verticalNormalizedPosition = Mathf.Clamp01(_scrollPositions[i]);
+            }
+        }
+
+        private void SaveAndRebuild(RouteDefinition route)
+        {
+            if (route != null)
+                RouteRegistry.Save(route);
+
+            RebuildWithScrolls();
         }
     }
 }
