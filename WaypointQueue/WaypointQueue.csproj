@@ -157,25 +157,22 @@
 			<Output TaskParameter="Assemblies" ItemName="ModAssemblyIdentities" />
 		</GetAssemblyIdentity>
 	</Target>
-	<Target Name="CopyReadme" AfterTargets="AfterBuild">
-		<Exec Command="copy &quot;$(SolutionDir)README.md&quot; &quot;$(ModDirectory)README.md&quot;"/>
-	</Target>
 	<Target Name="CopyInfo" AfterTargets="ExtractVersion">
 		<Exec Command="copy &quot;$(SolutionDir)Info.json&quot; &quot;$(ModDirectory)Info.json&quot;"/>
 	</Target>
 	<Target Name="SetVersion" AfterTargets="CopyInfo">
 		<Exec Command="powershell -ExecutionPolicy Bypass -File &quot;$(SolutionDir)UpdateVersion.ps1&quot; -FilePath &quot;$(ModDirectory)Info.json&quot; -FullVersion &quot;%(ModAssemblyIdentities.Version)&quot;" />
 	</Target>
-	<Target Name="PackageMod" AfterTargets="SetVersion">
+	<Target Name="PackageMod" AfterTargets="SetVersion" Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
 		<PropertyGroup>
 			<PublishPath>$(SolutionDir)bin</PublishPath>
 			<ZipName>$(PublishPath)\$(AssemblyName)_%(ModAssemblyIdentities.Version).zip</ZipName>
 		</PropertyGroup>
 		<MakeDir Directories="$(PublishPath)" />
 		<ItemGroup>
-			<OldZips Include="$(PublishPath)/$(AssemblyName)_*.zip" />
+			<OldZips Include="$(PublishPath)\$(AssemblyName)_*.zip" />
 		</ItemGroup>
 		<Delete Files="@(OldZips)" />
-		<Exec Command="powershell -Command &quot;Compress-Archive -Path '$(ModDirectory)' -Destination '$(ZipName)'&quot;" />
+		<Exec Command="powershell -Command &quot;Compress-Archive -Path '$(ModDirectory)\*' -Destination '$(ZipName)'&quot;" />
 	</Target>
 </Project>
