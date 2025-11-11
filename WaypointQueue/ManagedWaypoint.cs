@@ -10,6 +10,11 @@ namespace WaypointQueue
 {
     public class ManagedWaypoint
     {
+        public enum WaitType
+        {
+            Duration,
+            SpecificTime
+        }
         public enum PostCoupleCutType
         {
             Take,
@@ -86,6 +91,11 @@ namespace WaypointQueue
         public bool CurrentlyRefueling { get; set; }
         public int MaxSpeedAfterRefueling { get; set; }
         public string AreaName { get; set; }
+        public string WaitUntilGameTimeString { get; set; }
+        public WaitType DurationOrSpecificTime { get; set; } 
+        public float WaitUntilGameTotalSeconds { get; set; }
+        public float WaitForDuration { get; set; }
+        public bool CurrentlyWaiting { get; set; }
 
         public void Load()
         {
@@ -105,7 +115,7 @@ namespace WaypointQueue
             AreaName = OpsController.Shared.ClosestAreaForGamePosition(Location.GetPosition()).name;
         }
 
-        public ManagedWaypoint(Car locomotive, Location location, string coupleToCarId = "", bool connectAirOnCouple = true, bool releaseHandbrakesOnCouple = true, bool applyHandbrakeOnUncouple = true, int numberOfCarsToCut = 0, bool countUncoupledFromNearestToWaypoint = true, bool bleedAirOnUncouple = true, PostCoupleCutType takeOrLeaveCut = PostCoupleCutType.Leave)
+        public ManagedWaypoint(Car locomotive, Location location, string coupleToCarId = "", bool connectAirOnCouple = true, bool releaseHandbrakesOnCouple = true, bool applyHandbrakeOnUncouple = true, int numberOfCarsToCut = 0, bool countUncoupledFromNearestToWaypoint = true, bool bleedAirOnUncouple = true, PostCoupleCutType takeOrLeaveCut = PostCoupleCutType.Leave, float waitUntilTotalSeconds = 0)
         {
             Id = Guid.NewGuid().ToString();
             Locomotive = locomotive;
@@ -124,10 +134,11 @@ namespace WaypointQueue
             CurrentlyRefueling = false;
             AreaName = OpsController.Shared.ClosestAreaForGamePosition(Location.GetPosition()).name;
             TakeUncoupledCarsAsActiveCut = false;
+            WaitUntilGameTotalSeconds = waitUntilTotalSeconds;
         }
 
         [JsonConstructor]
-        public ManagedWaypoint(string id, string locomotiveId, string locationString, string coupleToCarId, bool connectAirOnCouple, bool releaseHandbrakesOnCouple, bool applyHandbrakesOnUncouple, bool bleedAirOnUncouple, int numberOfCarsToCut, bool countUncoupledFromNearestToWaypoint, PostCoupleCutType takeOrLeaveCut, SerializableVector3 serializableRefuelPoint, string refuelIndustryId, string refuelLoadName, float refuelMaxCapacity, bool willRefuel, bool currentlyRefueling, string areaName, bool takeUncoupledCarsAsActiveCut, int maxSpeedAfterRefueling)
+        public ManagedWaypoint(string id, string locomotiveId, string locationString, string coupleToCarId, bool connectAirOnCouple, bool releaseHandbrakesOnCouple, bool applyHandbrakesOnUncouple, bool bleedAirOnUncouple, int numberOfCarsToCut, bool countUncoupledFromNearestToWaypoint, PostCoupleCutType takeOrLeaveCut, SerializableVector3 serializableRefuelPoint, string refuelIndustryId, string refuelLoadName, float refuelMaxCapacity, bool willRefuel, bool currentlyRefueling, string areaName, bool takeUncoupledCarsAsActiveCut, int maxSpeedAfterRefueling, float waitUntilTotalSeconds)
         {
             Id = id;
             LocomotiveId = locomotiveId;
@@ -149,6 +160,7 @@ namespace WaypointQueue
             AreaName = areaName;
             TakeUncoupledCarsAsActiveCut = takeUncoupledCarsAsActiveCut;
             MaxSpeedAfterRefueling = maxSpeedAfterRefueling;
+            WaitUntilGameTotalSeconds = waitUntilTotalSeconds;
         }
     }
 

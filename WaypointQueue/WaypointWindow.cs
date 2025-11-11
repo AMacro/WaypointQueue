@@ -359,6 +359,8 @@ namespace WaypointQueue
                     WaypointQueueController.Shared.UpdateWaypoint(waypoint);
                 }));
             }
+
+            AddWaitingSection(waypoint, builder);
         }
 
         private void AddConnectAirAndReleaseBrakeToggles(ManagedWaypoint waypoint, UIPanelBuilder builder)
@@ -415,6 +417,79 @@ namespace WaypointQueue
             if (GameInput.IsShiftDown) offsetAmount = 5;
             if (GameInput.IsControlDown) offsetAmount = 10;
             return offsetAmount;
+        }
+
+        private void AddWaitingSection(ManagedWaypoint waypoint, UIPanelBuilder builder)
+        {
+            builder.AddField("Then wait", builder.AddDropdown(["For a duration of", "Until specific time"], waypoint.DurationOrSpecificTime == ManagedWaypoint.WaitType.Duration ? 0 : 1, (int value) =>
+            {
+                switch (value)
+                {
+                    case 0:
+                        waypoint.DurationOrSpecificTime = ManagedWaypoint.WaitType.Duration; break;
+                    case 1:
+                        waypoint.DurationOrSpecificTime = ManagedWaypoint.WaitType.SpecificTime; break;
+                    default:
+                        break;
+                }
+                WaypointQueueController.Shared.UpdateWaypoint(waypoint);
+            }));
+
+            if (waypoint.DurationOrSpecificTime == ManagedWaypoint.WaitType.Duration)
+            {
+                builder.AddField("Wait for", builder.HStack((UIPanelBuilder field) =>
+                {
+                    string durationString = "0";
+                    field.AddLabel(durationString);
+                    field.AddButtonCompact("+1m", delegate
+                    {
+                        waypoint.WaitForDuration += 60;
+                        WaypointQueueController.Shared.UpdateWaypoint(waypoint);
+                    });
+                    field.AddButtonCompact("+15m", () =>
+                    {
+                        waypoint.WaitForDuration += 60 * 15;
+                        WaypointQueueController.Shared.UpdateWaypoint(waypoint);
+                    });
+                    field.AddButtonCompact("+1h", () =>
+                    {
+                        waypoint.WaitForDuration += 60 * 60;
+                        WaypointQueueController.Shared.UpdateWaypoint(waypoint);
+                    });
+                    field.AddButtonCompact("Reset", () =>
+                    {
+                        waypoint.WaitForDuration = 0;
+                        WaypointQueueController.Shared.UpdateWaypoint(waypoint);
+                    });
+                }));
+            }
+
+            if (waypoint.DurationOrSpecificTime == ManagedWaypoint.WaitType.SpecificTime)
+            {
+                builder.AddField("Wait until", builder.HStack((UIPanelBuilder field) =>
+                {
+                    field.AddInputField(waypoint.WaitUntilGameTimeString, (string value) =>
+                    {
+                        if (TryParseTimeToTotalSeconds(value, out float result))
+                        {
+                            waypoint.WaitUntilGameTimeString = value;
+                            waypoint.WaitUntilGameTotalSeconds = result;
+                            WaypointQueueController.Shared.UpdateWaypoint(waypoint);
+                        }
+                    });
+                }));
+            }
+        }
+
+        private bool TryParseTimeToTotalSeconds(string value, out float result)
+        {
+            result = 0f;
+            return true;
+        }
+
+        private string BuildDurationString(ManagedWaypoint waypoint)
+        {
+            return "";
         }
 
         private void JumpCameraToWaypoint(ManagedWaypoint waypoint)
