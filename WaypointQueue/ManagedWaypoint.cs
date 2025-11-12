@@ -28,7 +28,7 @@ namespace WaypointQueue
         public string LocationString { get; private set; }
 
         [JsonIgnore]
-        public Location Location { get; private set; }
+        public Location Location { get; internal set; }
 
         [JsonProperty]
         public string CoupleToCarId { get; private set; }
@@ -90,6 +90,15 @@ namespace WaypointQueue
 
         public void Load()
         {
+            
+            if (string.IsNullOrEmpty(LocomotiveId))
+            {
+                Location = Graph.Shared.ResolveLocationString(LocationString);
+                AreaName = OpsController.Shared
+                    .ClosestAreaForGamePosition(Location.GetPosition()).name;
+                return;
+            }
+
             if (TrainController.Shared.TryGetCarForId(LocomotiveId, out Car locomotive))
             {
                 Loader.LogDebug($"Loaded locomotive {locomotive.Ident} for ManagedWaypoint");
@@ -117,6 +126,33 @@ namespace WaypointQueue
             Id = Guid.NewGuid().ToString();
             Locomotive = locomotive;
             LocomotiveId = locomotive.id;
+            Location = location;
+            LocationString = Graph.Shared.LocationToString(location);
+            CoupleToCarId = coupleToCarId;
+            ConnectAirOnCouple = connectAirOnCouple;
+            ReleaseHandbrakesOnCouple = releaseHandbrakesOnCouple;
+            ApplyHandbrakesOnUncouple = applyHandbrakeOnUncouple;
+            NumberOfCarsToCut = numberOfCarsToCut;
+            CountUncoupledFromNearestToWaypoint = countUncoupledFromNearestToWaypoint;
+            BleedAirOnUncouple = bleedAirOnUncouple;
+            TakeOrLeaveCut = takeOrLeaveCut;
+            WillRefuel = false;
+            CurrentlyRefueling = false;
+            AreaName = OpsController.Shared.ClosestAreaForGamePosition(Location.GetPosition()).name;
+            TakeUncoupledCarsAsActiveCut = false;
+            TimetableSymbol = timetableSymbol;
+        }
+        public ManagedWaypoint(
+            Location location,
+            string coupleToCarId = "", bool connectAirOnCouple = true,
+            bool releaseHandbrakesOnCouple = true, bool applyHandbrakeOnUncouple = true,
+            int numberOfCarsToCut = 0, bool countUncoupledFromNearestToWaypoint = true,
+            bool bleedAirOnUncouple = true, PostCoupleCutType takeOrLeaveCut = PostCoupleCutType.Take,
+            string timetableSymbol = null)
+        {
+            Id = Guid.NewGuid().ToString();
+            Locomotive = null;
+            LocomotiveId = null;
             Location = location;
             LocationString = Graph.Shared.LocationToString(location);
             CoupleToCarId = coupleToCarId;

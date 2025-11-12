@@ -3,6 +3,7 @@ using Game.State;
 using Helpers;
 using Model;
 using Model.AI;
+using Model.Definition;
 using Model.Definition.Data;
 using Model.Ops;
 using Model.Ops.Definition;
@@ -916,6 +917,12 @@ namespace WaypointQueue
             Loader.Log($"Setting handbrakes on {carsToTieDown} uncoupled cars");
             for (int i = 0; i < carsToTieDown; i++)
             {
+                if (cars[i].Archetype.IsLocomotive())
+                {
+                    carsToTieDown++;
+                    continue;
+                }
+                    
                 cars[i].SetHandbrake(true);
             }
         }
@@ -982,20 +989,53 @@ namespace WaypointQueue
                 _coroutine = StartCoroutine(Ticker());
             }
         }
-        public void AssignRouteToLoco(RouteDefinition route, Model.Car loco, bool append)
+        public void AssignRouteToLoco(RouteDefinition route, Car loco, bool append)
         {
             if (route == null || loco == null) return;
-            if (!append) ClearWaypointState(loco);
+
+            if (!append)
+            {
+                ClearWaypointState(loco);
+            }
 
             foreach (var rw in route.Waypoints)
             {
-                var mw = rw.ToManagedWaypoint(loco);
+                // route waypoint may not have a resolved Location yet
+                Location loc = rw.Location != null
+                    ? rw.Location
+                    : Track.Graph.Shared.ResolveLocationString(rw.LocationString);
+
+                // make a loco-bound waypoint from the route waypoint
+                var mw = new ManagedWaypoint(
+                    loco,
+                    loc,
+                    rw.CoupleToCarId,
+                    rw.ConnectAirOnCouple,
+                    rw.ReleaseHandbrakesOnCouple,
+                    rw.ApplyHandbrakesOnUncouple,
+                    rw.NumberOfCarsToCut,
+                    rw.CountUncoupledFromNearestToWaypoint,
+                    rw.BleedAirOnUncouple,
+                    rw.TakeOrLeaveCut,
+                    rw.TimetableSymbol
+                );
+
+                mw.TakeUncoupledCarsAsActiveCut = rw.TakeUncoupledCarsAsActiveCut;
+                mw.SerializableRefuelPoint = rw.SerializableRefuelPoint;
+                mw.RefuelIndustryId = rw.RefuelIndustryId;
+                mw.RefuelLoadName = rw.RefuelLoadName;
+                mw.RefuelMaxCapacity = rw.RefuelMaxCapacity;
+                mw.WillRefuel = rw.WillRefuel;
+
+                // add to loco's queue
                 AddWaypoint(loco, mw.Location, mw.CoupleToCarId, isReplacing: false);
 
+                // copy the rest onto the actual queued waypoint (same pattern you already use)
                 var list = GetWaypointList(loco);
                 if (list != null && list.Count > 0)
                 {
                     var last = list[list.Count - 1];
+
                     last.ConnectAirOnCouple = mw.ConnectAirOnCouple;
                     last.ReleaseHandbrakesOnCouple = mw.ReleaseHandbrakesOnCouple;
                     last.ApplyHandbrakesOnUncouple = mw.ApplyHandbrakesOnUncouple;
@@ -1023,9 +1063,32 @@ namespace WaypointQueue
             var list = GetWaypointList(loco);
             if (list != null)
                 foreach (var mw in list)
-                    route.Waypoints.Add(RouteWaypoint.FromManagedWaypoint(mw));
+                {
+                    // make a copy without the locomotive
+                    var copy = new ManagedWaypoint(
+                        mw.Location,
+                        mw.CoupleToCarId,
+                        mw.ConnectAirOnCouple,
+                        mw.ReleaseHandbrakesOnCouple,
+                        mw.ApplyHandbrakesOnUncouple,
+                        mw.NumberOfCarsToCut,
+                        mw.CountUncoupledFromNearestToWaypoint,
+                        mw.BleedAirOnUncouple,
+                        mw.TakeOrLeaveCut,
+                        mw.TimetableSymbol
+                    );
+                    copy.TakeUncoupledCarsAsActiveCut = mw.TakeUncoupledCarsAsActiveCut;
+                    copy.SerializableRefuelPoint = mw.SerializableRefuelPoint;
+                    copy.RefuelIndustryId = mw.RefuelIndustryId;
+                    copy.RefuelLoadName = mw.RefuelLoadName;
+                    copy.RefuelMaxCapacity = mw.RefuelMaxCapacity;
+                    copy.WillRefuel = mw.WillRefuel;
+
+                    route.Waypoints.Add(copy);
+                }
             return route;
         }
+
 
         private void ApplyTimetableSymbolIfRequested(ManagedWaypoint waypoint)
         {

@@ -218,7 +218,7 @@ namespace WaypointQueue
                 });
         }
 
-        private void BuildWaypointSection(ManagedWaypoint waypoint, int number, UIPanelBuilder builder)
+        internal void BuildWaypointSection(ManagedWaypoint waypoint, int number, UIPanelBuilder builder)
         {
             builder.AddHRule();
             builder.Spacer(16f);
@@ -364,36 +364,40 @@ namespace WaypointQueue
             }
         }
 
-        private void AddConnectAirAndReleaseBrakeToggles(ManagedWaypoint waypoint, UIPanelBuilder builder)
+        private void AddConnectAirAndReleaseBrakeToggles(ManagedWaypoint waypoint, UIPanelBuilder builder, Action onUpdate = null)
         {
             builder.AddField("Connect air", builder.AddToggle(() => waypoint.ConnectAirOnCouple, delegate (bool value)
             {
                 waypoint.ConnectAirOnCouple = value;
-                WaypointQueueController.Shared.UpdateWaypoint(waypoint);
+                if (onUpdate != null) onUpdate();
+                else WaypointQueueController.Shared.UpdateWaypoint(waypoint);
             }));
 
             builder.AddField("Release handbrakes", builder.AddToggle(() => waypoint.ReleaseHandbrakesOnCouple, delegate (bool value)
             {
                 waypoint.ReleaseHandbrakesOnCouple = value;
-                WaypointQueueController.Shared.UpdateWaypoint(waypoint);
+                if (onUpdate != null) onUpdate();
+                else WaypointQueueController.Shared.UpdateWaypoint(waypoint);
             }));
         }
 
-        private void AddBleedAirAndSetBrakeToggles(ManagedWaypoint waypoint, UIPanelBuilder builder)
+        private void AddBleedAirAndSetBrakeToggles(ManagedWaypoint waypoint, UIPanelBuilder builder, Action onUpdate = null)
         {
             builder.AddField("Bleed air", builder.AddToggle(() => waypoint.BleedAirOnUncouple, delegate (bool value)
             {
                 waypoint.BleedAirOnUncouple = value;
-                WaypointQueueController.Shared.UpdateWaypoint(waypoint);
+                if (onUpdate != null) onUpdate();
+                else WaypointQueueController.Shared.UpdateWaypoint(waypoint);
             }, interactable: waypoint.NumberOfCarsToCut > 0));
             builder.AddField("Apply handbrakes", builder.AddToggle(() => waypoint.ApplyHandbrakesOnUncouple, delegate (bool value)
             {
                 waypoint.ApplyHandbrakesOnUncouple = value;
-                WaypointQueueController.Shared.UpdateWaypoint(waypoint);
+                if (onUpdate != null) onUpdate();
+                else WaypointQueueController.Shared.UpdateWaypoint(waypoint);
             }, interactable: waypoint.NumberOfCarsToCut > 0));
         }
 
-        private void AddCarCutButtons(ManagedWaypoint waypoint, UIPanelBuilder field, string prefix = null)
+        private void AddCarCutButtons(ManagedWaypoint waypoint, UIPanelBuilder field, string prefix = null, Action onUpdate = null)
         {
             string pluralCars = waypoint.NumberOfCarsToCut == 1 ? "car" : "cars";
             field.AddLabel($"{prefix}{waypoint.NumberOfCarsToCut}")
@@ -403,12 +407,14 @@ namespace WaypointQueue
             {
                 int result = Mathf.Max(waypoint.NumberOfCarsToCut - GetOffsetAmount(), 0);
                 waypoint.NumberOfCarsToCut = result;
-                WaypointQueueController.Shared.UpdateWaypoint(waypoint);
+                if (onUpdate != null) onUpdate();
+                else WaypointQueueController.Shared.UpdateWaypoint(waypoint);
             }).Disable(waypoint.NumberOfCarsToCut <= 0).Width(24f);
             field.AddButtonCompact("+", delegate
             {
                 waypoint.NumberOfCarsToCut += GetOffsetAmount();
-                WaypointQueueController.Shared.UpdateWaypoint(waypoint);
+                if (onUpdate != null) onUpdate();
+                else WaypointQueueController.Shared.UpdateWaypoint(waypoint);
             }).Width(24f);
         }
         private int GetOffsetAmount()

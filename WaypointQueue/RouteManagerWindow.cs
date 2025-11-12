@@ -142,8 +142,8 @@ namespace WaypointQueue
                         scroll.Spacer(20f);
                         for (int i = 0; i < route.Waypoints.Count; i++)
                         {
-                            var rwp = route.Waypoints[i];
-                            BuildRouteWaypointSection(route, rwp, i + 1, scroll);
+                            var mw = route.Waypoints[i];
+                            BuildRouteWaypointSection(route, mw, i + 1, scroll);
                             scroll.Spacer(20f);
                         }
                     });
@@ -173,11 +173,11 @@ namespace WaypointQueue
             });
         }
 
-        private static bool TryResolveLocation(RouteWaypoint rwp, out Location loc)
+        private static bool TryResolveLocation(ManagedWaypoint mw, out Location loc)
         {
             try
             {
-                loc = Graph.Shared.ResolveLocationString(rwp.LocationString);
+                loc = Graph.Shared.ResolveLocationString(mw.LocationString);
                 return true;
             }
             catch
@@ -187,9 +187,9 @@ namespace WaypointQueue
             }
         }
 
-        private static string GetAreaName(RouteWaypoint rwp)
+        private static string GetAreaName(ManagedWaypoint mw)
         {
-            if (TryResolveLocation(rwp, out var loc))
+            if (TryResolveLocation(mw, out var loc))
             {
                 var area = OpsController.Shared.ClosestAreaForGamePosition(loc.GetPosition());
                 return area?.name ?? "Unknown";
@@ -210,249 +210,22 @@ namespace WaypointQueue
                 });
         }
 
-        private void BuildRouteWaypointSection(RouteDefinition route, RouteWaypoint rwp, int number, UIPanelBuilder builder)
+        private void BuildRouteWaypointSection(RouteDefinition route, ManagedWaypoint mw, int number, UIPanelBuilder builder)
         {
-            builder.AddHRule();
-            builder.Spacer(16f);
-
             
-            builder.HStack(row =>
+            if (mw.Location == null)
             {
-                row.AddLabel($"Waypoint {number}");
-                row.Spacer();
-                var options = new List<DropdownMenu.RowData>
-        {
-            new DropdownMenu.RowData("Jump to waypoint", ""),
-            new DropdownMenu.RowData("Delete", "")
-        };
-                row.AddOptionsDropdown(options, (int value) =>
+                try
                 {
-                    switch (value)
-                    {
-                        case 0: JumpCameraToWaypoint(rwp); break;
-                        case 1:
-                            route.Waypoints.Remove(rwp);
-                            SaveAndRebuild(route);
-                            break;
-                    }
-                });
-                row.Spacer(8f);
-            });
-
-            
-            builder.AddField("Destination", builder.HStack(field =>
-            {
-                field.AddLabel(GetAreaName(rwp)).Width(160f);
-                field.Spacer(4f);
-
-                field.AddLabel("Symbol").Width(80f);
-
-                var (labels, values, selectedIndex) = BuildTimetableSymbolChoices(rwp.TimetableSymbol);
-                field.AddDropdown(labels, selectedIndex, (int idx) =>
+                    mw.Location = Track.Graph.Shared.ResolveLocationString(mw.LocationString);
+                }
+                catch
                 {
                     
-                    rwp.TimetableSymbol = values[idx];
-                    SaveAndRebuild(route);
-                })
-                .Width(200f)
-                .Height(10f);
-            }));
-
-            bool isCoupling = !string.IsNullOrEmpty(rwp.CoupleToCarId);
-
-            if (isCoupling)
-            {
-                
-                if (TrainController.Shared.TryGetCarForId(rwp.CoupleToCarId, out Car couplingToCar))
-                {
-                    builder.AddField("Couple to ", builder.HStack(field =>
-                    {
-                        field.AddLabel(couplingToCar.Ident.ToString());
-                    }));
-                }
-                else
-                {
-                    builder.AddField("Couple to ", builder.HStack(field =>
-                    {
-                        field.AddLabel($"Unknown ({rwp.CoupleToCarId})");
-                    }));
-                }
-
-                
-                if (Loader.Settings.UseCompactLayout)
-                {
-                    builder.HStack(inner => { AddConnectAirAndReleaseBrakeToggles(rwp, inner, route); });
-                }
-                else
-                {
-                    AddConnectAirAndReleaseBrakeToggles(rwp, builder, route);
-                }
-
-                
-                builder.AddField("Post-coupling cut", builder.HStack(field =>
-                {
-                    string prefix = rwp.TakeOrLeaveCut == ManagedWaypoint.PostCoupleCutType.Take ? "Take " : "Leave ";
-                    AddCarCutButtons(rwp, field, route, prefix);
-                    field.AddButtonCompact("Swap", () =>
-                    {
-                        rwp.TakeOrLeaveCut = rwp.TakeOrLeaveCut == ManagedWaypoint.PostCoupleCutType.Take
-                            ? ManagedWaypoint.PostCoupleCutType.Leave
-                            : ManagedWaypoint.PostCoupleCutType.Take;
-                        SaveAndRebuild(route);
-                    });
-                    field.Spacer(8f);
-                }))
-                .Tooltip("Cutting cars after coupling",
-                         "After coupling, you can \"Take\" or \"Leave\" a number of cars. This is very useful when queueing switching orders.\n\n" +
-                         "If you couple to a cut of 3 cars and \"Take\" 2 cars, you will leave with the 2 closest cars and the 3rd car will be left behind. \n\n" +
-                         "If you are coupling 2 additional cars to 1 car already spotted, you can \"Leave\" 2 cars and continue to the next queued waypoint.");
-
-                if (rwp.NumberOfCarsToCut > 0)
-                {
-                    if (Loader.Settings.UseCompactLayout)
-                        builder.HStack(inner => { AddBleedAirAndSetBrakeToggles(rwp, inner, route); });
-                    else
-                        AddBleedAirAndSetBrakeToggles(rwp, builder, route);
-                }
-            }
-            else
-            {
-                
-                builder.HStack(row =>
-                {
-                    row.AddField("Uncouple", row.HStack(field =>
-                    {
-                        AddCarCutButtons(rwp, field, route, null);
-                    }));
-                });
-
-                bool isUncoupling = rwp.NumberOfCarsToCut > 0;
-                if (isUncoupling)
-                {
-                    builder.AddField("Count cars from",
-                        builder.AddDropdown(new List<string> { "Closest to waypoint", "Furthest from waypoint" },
-                            rwp.CountUncoupledFromNearestToWaypoint ? 0 : 1, (int value) =>
-                            {
-                                rwp.CountUncoupledFromNearestToWaypoint = !rwp.CountUncoupledFromNearestToWaypoint;
-                                SaveAndRebuild(route);
-                            }));
-
-                    if (Loader.Settings.UseCompactLayout)
-                        builder.HStack(inner => { AddBleedAirAndSetBrakeToggles(rwp, inner, route); });
-                    else
-                        AddBleedAirAndSetBrakeToggles(rwp, builder, route);
-
-                    builder.AddField("Take active cut", builder.AddToggle(
-                        () => rwp.TakeUncoupledCarsAsActiveCut,
-                        (bool value) =>
-                        {
-                            rwp.TakeUncoupledCarsAsActiveCut = value;
-                            SaveAndRebuild(route);
-                        }))
-                    .Tooltip("Take active cut",
-                             "If this is active, the number of cars to uncouple will still be part of the active train. " +
-                             "The rest of the train will be treated as an uncoupled cut which may bleed air and apply handbrakes. " +
-                             "This is particularly useful for local freight switching.\n\n" +
-                             "A train of 10 cars arrives in Whittier. The 2 cars behind the locomotive need to be delivered. " +
-                             "By checking \"Take active cut\", you can order the engineer to travel to a waypoint, uncouple 4 cars " +
-                             "including the locomotive and tender, and travel to another waypoint to the industry track to deliver the 2 cars, " +
-                             "all while knowing that the rest of the local freight consist has handbrakes applied.");
                 }
             }
 
-            
-            if (!string.IsNullOrEmpty(rwp.RefuelLoadName))
-            {
-                builder.AddField($"Refuel {rwp.RefuelLoadName}", builder.AddToggle(
-                    () => rwp.WillRefuel,
-                    (bool value) =>
-                    {
-                        rwp.WillRefuel = value;
-                        SaveAndRebuild(route);
-                    }));
-            }
-        }
-
-        
-        private void AddConnectAirAndReleaseBrakeToggles(RouteWaypoint rwp, UIPanelBuilder builder, RouteDefinition route)
-        {
-            builder.AddField("Connect air", builder.AddToggle(() => rwp.ConnectAirOnCouple, (bool value) =>
-            {
-                rwp.ConnectAirOnCouple = value;
-                SaveAndRebuild(route);
-            }));
-
-            builder.AddField("Release handbrakes", builder.AddToggle(() => rwp.ReleaseHandbrakesOnCouple, (bool value) =>
-            {
-                rwp.ReleaseHandbrakesOnCouple = value;
-                SaveAndRebuild(route);
-            }));
-        }
-
-        private void AddBleedAirAndSetBrakeToggles(RouteWaypoint rwp, UIPanelBuilder builder, RouteDefinition route)
-        {
-            builder.AddField("Bleed air", builder.AddToggle(() => rwp.BleedAirOnUncouple, (bool value) =>
-            {
-                rwp.BleedAirOnUncouple = value;
-                SaveAndRebuild(route);
-            }, interactable: rwp.NumberOfCarsToCut > 0));
-
-            builder.AddField("Apply handbrakes", builder.AddToggle(() => rwp.ApplyHandbrakesOnUncouple, (bool value) =>
-            {
-                rwp.ApplyHandbrakesOnUncouple = value;
-                SaveAndRebuild(route);
-            }, interactable: rwp.NumberOfCarsToCut > 0));
-        }
-
-        private void AddCarCutButtons(RouteWaypoint rwp, UIPanelBuilder field, RouteDefinition route, string prefix = null)
-        {
-            field.AddLabel($"{prefix}{rwp.NumberOfCarsToCut}")
-                .TextWrap(TextOverflowModes.Overflow, TextWrappingModes.NoWrap)
-                .Width(100f);
-            field.AddButtonCompact("-", () =>
-            {
-                int result = Mathf.Max(rwp.NumberOfCarsToCut - GetOffsetAmount(), 0);
-                rwp.NumberOfCarsToCut = result;
-                SaveAndRebuild(route);
-
-            }).Disable(rwp.NumberOfCarsToCut <= 0).Width(24f);
-            field.AddButtonCompact("+", () =>
-            {
-                rwp.NumberOfCarsToCut += GetOffsetAmount();
-                SaveAndRebuild(route);
-            }).Width(24f);
-        }
-
-        private int GetOffsetAmount()
-        {
-            int offsetAmount = 1;
-            if (GameInput.IsShiftDown) offsetAmount = 5;
-            if (GameInput.IsControlDown) offsetAmount = 10;
-            return offsetAmount;
-        }
-
-        
-        private RouteWaypoint FromManagedWaypoint(ManagedWaypoint mw)
-        {
-            return new RouteWaypoint
-            {
-                LocationString = mw.LocationString,
-                CoupleToCarId = mw.CoupleToCarId,
-                ConnectAirOnCouple = mw.ConnectAirOnCouple,
-                ReleaseHandbrakesOnCouple = mw.ReleaseHandbrakesOnCouple,
-                ApplyHandbrakesOnUncouple = mw.ApplyHandbrakesOnUncouple,
-                BleedAirOnUncouple = mw.BleedAirOnUncouple,
-                NumberOfCarsToCut = mw.NumberOfCarsToCut,
-                CountUncoupledFromNearestToWaypoint = mw.CountUncoupledFromNearestToWaypoint,
-                TakeOrLeaveCut = mw.TakeOrLeaveCut,
-                TakeUncoupledCarsAsActiveCut = mw.TakeUncoupledCarsAsActiveCut,
-                SerializableRefuelPoint = mw.SerializableRefuelPoint,
-                RefuelIndustryId = mw.RefuelIndustryId,
-                RefuelLoadName = mw.RefuelLoadName,
-                RefuelMaxCapacity = mw.RefuelMaxCapacity,
-                WillRefuel = mw.WillRefuel,
-                TimetableSymbol = mw.TimetableSymbol
-            };
+            WaypointWindow.Shared.BuildWaypointSection(mw, number, builder);
         }
 
         private void AssignToSelectedLoco(RouteDefinition route, bool append)
@@ -504,13 +277,38 @@ namespace WaypointQueue
         {
             var loco = TrainController.Shared.SelectedLocomotive;
             if (loco == null) return;
+
             var list = WaypointQueueController.Shared.GetWaypointList(loco);
+
             route.Waypoints.Clear();
+
             if (list != null)
             {
                 foreach (var mw in list)
-                    route.Waypoints.Add(FromManagedWaypoint(mw));
+                {
+                    var copy = new ManagedWaypoint(
+                        mw.Location,
+                        mw.CoupleToCarId,
+                        mw.ConnectAirOnCouple,
+                        mw.ReleaseHandbrakesOnCouple,
+                        mw.ApplyHandbrakesOnUncouple,
+                        mw.NumberOfCarsToCut,
+                        mw.CountUncoupledFromNearestToWaypoint,
+                        mw.BleedAirOnUncouple,
+                        mw.TakeOrLeaveCut,
+                        mw.TimetableSymbol
+                    );
+                    copy.TakeUncoupledCarsAsActiveCut = mw.TakeUncoupledCarsAsActiveCut;
+                    copy.SerializableRefuelPoint = mw.SerializableRefuelPoint;
+                    copy.RefuelIndustryId = mw.RefuelIndustryId;
+                    copy.RefuelLoadName = mw.RefuelLoadName;
+                    copy.RefuelMaxCapacity = mw.RefuelMaxCapacity;
+                    copy.WillRefuel = mw.WillRefuel;
+
+                    route.Waypoints.Add(copy);
+                }
             }
+
             SaveAndRebuild(route);
         }
         private void AppendFromSelectedLoco(RouteDefinition route)
@@ -522,63 +320,30 @@ namespace WaypointQueue
             if (list == null || list.Count == 0) return;
 
             foreach (var mw in list)
-                route.Waypoints.Add(FromManagedWaypoint(mw));
+            {
+                var copy = new ManagedWaypoint(
+                    mw.Location,
+                    mw.CoupleToCarId,
+                    mw.ConnectAirOnCouple,
+                    mw.ReleaseHandbrakesOnCouple,
+                    mw.ApplyHandbrakesOnUncouple,
+                    mw.NumberOfCarsToCut,
+                    mw.CountUncoupledFromNearestToWaypoint,
+                    mw.BleedAirOnUncouple,
+                    mw.TakeOrLeaveCut,
+                    mw.TimetableSymbol
+                );
+                copy.TakeUncoupledCarsAsActiveCut = mw.TakeUncoupledCarsAsActiveCut;
+                copy.SerializableRefuelPoint = mw.SerializableRefuelPoint;
+                copy.RefuelIndustryId = mw.RefuelIndustryId;
+                copy.RefuelLoadName = mw.RefuelLoadName;
+                copy.RefuelMaxCapacity = mw.RefuelMaxCapacity;
+                copy.WillRefuel = mw.WillRefuel;
+
+                route.Waypoints.Add(copy);
+            }
 
             SaveAndRebuild(route);
-        }
-
-        private void JumpCameraToWaypoint(RouteWaypoint rwp)
-        {
-            try
-            {
-                if (TryResolveLocation(rwp, out var loc))
-                {
-                    CameraSelector.shared.JumpToPoint(loc.GetPosition(), loc.GetRotation(), CameraSelector.CameraIdentifier.Strategy);
-                }
-            }
-            catch
-            {
-                
-            }
-        }
-
-        
-        private static (List<string> labels, List<string> values, int selectedIndex)
-        BuildTimetableSymbolChoices(string current)
-        {
-            var labels = new List<string>();
-            var values = new List<string>();
-            int selected = 0;
-
-            
-            labels.Add("— no change —");
-            values.Add(null);
-
-            var tt = TimetableController.Shared?.Current;
-            if (tt != null && tt.Trains != null && tt.Trains.Count > 0)
-            {
-                foreach (var kv in tt.Trains
-                    .OrderBy(kv => kv.Value.TrainType)
-                    .ThenBy(kv => kv.Value.TrainClass)
-                    .ThenBy(kv => kv.Value.SortOrderWithinClass)
-                    .ThenBy(kv => kv.Value.SortName))
-                {
-                    var sym = kv.Key;
-                    var train = kv.Value;
-                    string label = train.DisplayStringLong; 
-                    labels.Add(label);
-                    values.Add(sym);
-                    if (!string.IsNullOrEmpty(current) && current == sym)
-                        selected = labels.Count - 1;
-                }
-            }
-            else
-            {
-                labels.Add("(no timetable loaded)");
-                values.Add(null);
-            }
-
-            return (labels, values, selected);
         }
 
         private void OnRouteUpdated()

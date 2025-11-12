@@ -132,6 +132,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="PatchAutoEngineerPlanner.cs" />
     <Compile Include="PatchPopulateOperationsPanel.cs" />
     <Compile Include="RouteAssignmentRegistry.cs" />
     <Compile Include="RouteAssignmentSaveManager.cs" />
@@ -146,6 +147,7 @@
     <Compile Include="RouteSaveManager.cs" />
     <Compile Include="WaypointQueueController.cs" />
     <Compile Include="WaypointSaveManager.cs" />
+    <Compile Include="WaypointUIHelpers.cs" />
     <Compile Include="WaypointWindow.cs" />
     <Compile Include="WaypointQueueSettings.cs" />
     <Compile Include="WindowBase.cs" />
