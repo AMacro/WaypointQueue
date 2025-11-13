@@ -1,6 +1,9 @@
-﻿using Model;
+﻿using Game;
+using Model;
+using Model.Ops.Timetable;
 using System.Collections;
 using System.Collections.Generic;
+using System.Text.RegularExpressions;
 using TMPro;
 using UI;
 using UI.Builder;
@@ -221,20 +224,33 @@ namespace WaypointQueue
                 builder.AddLabel($"Waypoint {number}");
                 builder.Spacer();
                 List<DropdownMenu.RowData> options = new List<DropdownMenu.RowData>();
-                options.Add(new DropdownMenu.RowData("Jump to waypoint", ""));
-                options.Add(new DropdownMenu.RowData("Delete", ""));
+                var jumpToWaypointRow = new DropdownMenu.RowData("Jump to waypoint", "");
+                var removeWaitRow = new DropdownMenu.RowData("Remove wait", "");
+                var deleteWaypointRow = new DropdownMenu.RowData("Delete", "");
+
+                options.Add(jumpToWaypointRow);
+                if (waypoint.WillWait)
+                {
+                    options.Add(removeWaitRow);
+                }
+                options.Add(deleteWaypointRow);
+
                 builder.AddOptionsDropdown(options, (int value) =>
                 {
-                    switch (value)
+                    if (value == options.IndexOf(jumpToWaypointRow))
                     {
-                        case 0:
-                            JumpCameraToWaypoint(waypoint);
-                            break;
-                        case 1:
-                            WaypointQueueController.Shared.RemoveWaypoint(waypoint);
-                            break;
-                        default:
-                            break;
+                        JumpCameraToWaypoint(waypoint);
+                    }
+
+                    if (value == options.IndexOf(removeWaitRow))
+                    {
+                        waypoint.ClearWaiting();
+                        WaypointQueueController.Shared.UpdateWaypoint(waypoint);
+                    }
+
+                    if (value == options.IndexOf(deleteWaypointRow))
+                    {
+                        WaypointQueueController.Shared.RemoveWaypoint(waypoint);
                     }
                 });
                 builder.Spacer(8f);
@@ -245,7 +261,7 @@ namespace WaypointQueue
                 field.AddLabel(waypoint.AreaName?.Length > 0 ? waypoint.AreaName : "Unknown");
             }));
 
-            if (waypoint.IsCoupling)
+            if (waypoint.IsCoupling && !waypoint.CurrentlyWaiting)
             {
                 TrainController.Shared.TryGetCarForId(waypoint.CoupleToCarId, out Car couplingToCar);
                 builder.AddField($"Couple to ", builder.HStack(delegate (UIPanelBuilder field)
@@ -279,7 +295,7 @@ namespace WaypointQueue
 
                 if (Loader.Settings.EnableTooltips)
                 {
-                    postCouplingCutField.Tooltip("Cutting cars after coupling", "After coupling, you can \"Take\" or \"Leave\" a number of cars. " +
+                    postCouplingCutField.RectTransform.Find("Label").GetComponent<TMP_Text>().rectTransform.Tooltip("Cutting cars after coupling", "After coupling, you can \"Take\" or \"Leave\" a number of cars. " +
                     "This is very useful when queueing switching orders." +
                     "\n\nIf you couple to a cut of 3 cars and \"Take\" 2 cars, you will leave with the 2 closest cars and the 3rd car will be left behind. " +
                     "You \"Take\" cars from the cut you are coupling to." +
@@ -303,7 +319,7 @@ namespace WaypointQueue
                     }
                 }
             }
-            else
+            else if (!waypoint.CurrentlyWaiting)
             {
                 builder.HStack(delegate (UIPanelBuilder builder)
                 {
@@ -351,7 +367,7 @@ namespace WaypointQueue
                 }
             }
 
-            if (waypoint.CanRefuelNearby)
+            if (waypoint.CanRefuelNearby && !waypoint.CurrentlyWaiting)
             {
                 builder.AddField($"Refuel {waypoint.RefuelLoadName}", builder.AddToggle(() => waypoint.WillRefuel, delegate (bool value)
                 {
@@ -421,45 +437,93 @@ namespace WaypointQueue
 
         private void AddWaitingSection(ManagedWaypoint waypoint, UIPanelBuilder builder)
         {
-            builder.AddField("Then wait", builder.AddDropdown(["For a duration of", "Until specific time"], waypoint.DurationOrSpecificTime == ManagedWaypoint.WaitType.Duration ? 0 : 1, (int value) =>
+            if (waypoint.CurrentlyWaiting)
             {
-                switch (value)
+                builder.AddField("Waiting until", builder.AddLabel($"{new GameDateTime(waypoint.WaitUntilGameTotalSeconds)}"));
+                return;
+            }
+            if (!waypoint.WillWait)
+            {
+                builder.AddField("Then wait", builder.AddToggle(() => waypoint.WillWait, (bool _) =>
                 {
-                    case 0:
-                        waypoint.DurationOrSpecificTime = ManagedWaypoint.WaitType.Duration; break;
-                    case 1:
-                        waypoint.DurationOrSpecificTime = ManagedWaypoint.WaitType.SpecificTime; break;
-                    default:
-                        break;
-                }
-                WaypointQueueController.Shared.UpdateWaypoint(waypoint);
+                    waypoint.WillWait = true;
+                    WaypointQueueController.Shared.UpdateWaypoint(waypoint);
+                }));
+                return;
+            }
+            builder.AddField("Then wait", builder.HStack((UIPanelBuilder builder) =>
+            {
+                builder.AddDropdown(["For a duration of time", "Until a specific time"], waypoint.DurationOrSpecificTime == ManagedWaypoint.WaitType.Duration ? 0 : 1, (int value) =>
+                {
+                    switch (value)
+                    {
+                        case 0:
+                            waypoint.DurationOrSpecificTime = ManagedWaypoint.WaitType.Duration; break;
+                        case 1:
+                            waypoint.DurationOrSpecificTime = ManagedWaypoint.WaitType.SpecificTime; break;
+                        default:
+                            break;
+                    }
+                    WaypointQueueController.Shared.UpdateWaypoint(waypoint);
+                }).Width(200f);
             }));
+
+            builder.Spacer(8f);
 
             if (waypoint.DurationOrSpecificTime == ManagedWaypoint.WaitType.Duration)
             {
-                builder.AddField("Wait for", builder.HStack((UIPanelBuilder field) =>
+                builder.AddField("Wait for", builder.HStack((UIPanelBuilder builder) =>
                 {
-                    string durationString = "0";
-                    field.AddLabel(durationString);
-                    field.AddButtonCompact("+1m", delegate
+                    builder.VStack((UIPanelBuilder builder) =>
                     {
-                        waypoint.WaitForDuration += 60;
-                        WaypointQueueController.Shared.UpdateWaypoint(waypoint);
-                    });
-                    field.AddButtonCompact("+15m", () =>
-                    {
-                        waypoint.WaitForDuration += 60 * 15;
-                        WaypointQueueController.Shared.UpdateWaypoint(waypoint);
-                    });
-                    field.AddButtonCompact("+1h", () =>
-                    {
-                        waypoint.WaitForDuration += 60 * 60;
-                        WaypointQueueController.Shared.UpdateWaypoint(waypoint);
-                    });
-                    field.AddButtonCompact("Reset", () =>
-                    {
-                        waypoint.WaitForDuration = 0;
-                        WaypointQueueController.Shared.UpdateWaypoint(waypoint);
+                        builder.HStack((UIPanelBuilder field) =>
+                        {
+                            field.AddInputField(waypoint.WaitUntilTimeString, (string value) =>
+                            {
+                                if (TryParseDurationInput(value, out int minutes))
+                                {
+                                    Loader.Log($"Parsed duration as {minutes}");
+                                    waypoint.WaitUntilTimeString = value;
+                                    waypoint.WaitForDurationMinutes = minutes;
+                                    WaypointQueueController.Shared.UpdateWaypoint(waypoint);
+                                }
+                                else
+                                {
+                                    Loader.Log($"Error parsing duration: \"{value}\"");
+                                    Toast.Present("Duration must be in HH:MM, HH MM, or MM format");
+                                }
+                            }, placeholder: "HH:MM").Width(80f);
+                            string durationLabel = BuildDurationString(waypoint.WaitForDurationMinutes);
+                            field.AddLabel(durationLabel).FlexibleWidth();
+                            field.AddButtonCompact("Reset", () =>
+                            {
+                                waypoint.WaitForDurationMinutes = 0;
+                                waypoint.WaitUntilTimeString = BuildDurationString(waypoint.WaitForDurationMinutes);
+                                WaypointQueueController.Shared.UpdateWaypoint(waypoint);
+                            }).Width(70f);
+                        });
+                        builder.Spacer(8f);
+                        builder.HStack((UIPanelBuilder field) =>
+                        {
+                            field.AddButtonCompact("+5m", delegate
+                            {
+                                waypoint.WaitForDurationMinutes += 5;
+                                waypoint.WaitUntilTimeString = BuildDurationString(waypoint.WaitForDurationMinutes);
+                                WaypointQueueController.Shared.UpdateWaypoint(waypoint);
+                            }).Width(50f);
+                            field.AddButtonCompact("+15m", () =>
+                            {
+                                waypoint.WaitForDurationMinutes += 15;
+                                waypoint.WaitUntilTimeString = BuildDurationString(waypoint.WaitForDurationMinutes);
+                                WaypointQueueController.Shared.UpdateWaypoint(waypoint);
+                            }).Width(60f);
+                            field.AddButtonCompact("+30m", () =>
+                            {
+                                waypoint.WaitForDurationMinutes += 30;
+                                waypoint.WaitUntilTimeString = BuildDurationString(waypoint.WaitForDurationMinutes);
+                                WaypointQueueController.Shared.UpdateWaypoint(waypoint);
+                            }).Width(60f);
+                        });
                     });
                 }));
             }
@@ -468,28 +532,77 @@ namespace WaypointQueue
             {
                 builder.AddField("Wait until", builder.HStack((UIPanelBuilder field) =>
                 {
-                    field.AddInputField(waypoint.WaitUntilGameTimeString, (string value) =>
+                    field.AddInputField(waypoint.WaitUntilTimeString, (string value) =>
                     {
-                        if (TryParseTimeToTotalSeconds(value, out float result))
+                        if (TimetableReader.TryParseTime(value, out TimetableTime time))
                         {
-                            waypoint.WaitUntilGameTimeString = value;
-                            waypoint.WaitUntilGameTotalSeconds = result;
-                            WaypointQueueController.Shared.UpdateWaypoint(waypoint);
+                            Loader.Log($"Parsed minutes as {time.Minutes}");
+                            waypoint.WaitUntilTimeString = value;
                         }
-                    });
+                        else
+                        {
+                            Loader.Log($"Error parsing time: \"{value}\"");
+                            Toast.Present("Time must be in HH:MM 24-hour format.");
+                        }
+                    }, placeholder: "HH:MM", 5).Width(80f);
+
+                    field.AddDropdown(["Today", "Tomorrow"], waypoint.WaitUntilDay == ManagedWaypoint.TodayOrTomorrow.Today ? 0 : 1, (int value) =>
+                    {
+                        waypoint.WaitUntilDay = (ManagedWaypoint.TodayOrTomorrow)value;
+                        WaypointQueueController.Shared.UpdateWaypoint(waypoint);
+                    }).Width(116f);
                 }));
             }
         }
 
-        private bool TryParseTimeToTotalSeconds(string value, out float result)
+        private bool TryParseDurationInput(string input, out int outputMinutes)
         {
-            result = 0f;
-            return true;
+            input = Regex.Replace(input, @"[^\d\s:]", "").Trim();
+
+            int hours = 0;
+            int minutes = 0;
+
+            if (int.TryParse(input, out int totalMinutes))
+            {
+                outputMinutes = totalMinutes;
+                return true;
+            }
+            else
+            {
+                Regex regex = new Regex(@"(\d+)(?:[:\s])(\d+)");
+                Match match = regex.Match(input);
+
+                if (!match.Success)
+                {
+                    outputMinutes = -1;
+                    return false;
+                }
+                else
+                {
+                    if (match.Groups[1].Success)
+                    {
+                        hours = int.Parse(match.Groups[1].Value);
+                    }
+                    if (match.Groups[2].Success)
+                    {
+                        minutes = int.Parse(match.Groups[2].Value);
+                    }
+                    outputMinutes = hours * 60 + minutes;
+                    return true;
+                }
+            }
         }
 
-        private string BuildDurationString(ManagedWaypoint waypoint)
+        private string BuildDurationString(int waitForMinutes)
         {
-            return "";
+            int hours = waitForMinutes / 60;
+            int minutes = waitForMinutes % 60;
+
+            if (hours > 0)
+            {
+                return $"{hours}h {minutes}m";
+            }
+            return $"{minutes}m";
         }
 
         private void JumpCameraToWaypoint(ManagedWaypoint waypoint)

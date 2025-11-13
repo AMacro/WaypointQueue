@@ -1,4 +1,5 @@
-﻿using Model;
+﻿using Game;
+using Model;
 using Model.Ops;
 using Newtonsoft.Json;
 using System;
@@ -10,6 +11,9 @@ namespace WaypointQueue
 {
     public class ManagedWaypoint
     {
+        // Used for JSON deserialization
+        public ManagedWaypoint() { }
+
         public enum WaitType
         {
             Duration,
@@ -19,6 +23,11 @@ namespace WaypointQueue
         {
             Take,
             Leave
+        }
+        public enum TodayOrTomorrow
+        {
+            Today,
+            Tomorrow
         }
         [JsonProperty]
         public string Id { get; private set; }
@@ -91,11 +100,14 @@ namespace WaypointQueue
         public bool CurrentlyRefueling { get; set; }
         public int MaxSpeedAfterRefueling { get; set; }
         public string AreaName { get; set; }
-        public string WaitUntilGameTimeString { get; set; }
-        public WaitType DurationOrSpecificTime { get; set; } 
-        public float WaitUntilGameTotalSeconds { get; set; }
-        public float WaitForDuration { get; set; }
+
+        public bool WillWait { get; set; }
         public bool CurrentlyWaiting { get; set; }
+        public WaitType DurationOrSpecificTime { get; set; } = WaitType.Duration;
+        public string WaitUntilTimeString { get; set; }
+        public TodayOrTomorrow WaitUntilDay { get; set; } = TodayOrTomorrow.Today;
+        public int WaitForDurationMinutes { get; set; }
+        public double WaitUntilGameTotalSeconds { get; set; }
 
         public void Load()
         {
@@ -113,6 +125,23 @@ namespace WaypointQueue
             Loader.LogDebug($"Loaded location {Location} for {locomotive.Ident} ManagedWaypoint");
 
             AreaName = OpsController.Shared.ClosestAreaForGamePosition(Location.GetPosition()).name;
+        }
+
+        public void SetWaitUntilByMinutes(int inputMinutesAfterMidnight, out GameDateTime waitUntilTime)
+        {
+            GameDateTime currentTime = TimeWeather.Now;
+            int day = WaitUntilDay == TodayOrTomorrow.Today ? currentTime.Day : currentTime.Day + 1;
+            waitUntilTime = new GameDateTime(day, 0).AddingMinutes(inputMinutesAfterMidnight);
+            WaitUntilGameTotalSeconds = waitUntilTime.TotalSeconds;
+        }
+
+        public void ClearWaiting()
+        {
+            WillWait = false;
+            DurationOrSpecificTime = WaitType.Duration;
+            WaitUntilTimeString = "";
+            WaitUntilGameTotalSeconds = 0;
+            WaitForDurationMinutes = 0;
         }
 
         public ManagedWaypoint(Car locomotive, Location location, string coupleToCarId = "", bool connectAirOnCouple = true, bool releaseHandbrakesOnCouple = true, bool applyHandbrakeOnUncouple = true, int numberOfCarsToCut = 0, bool countUncoupledFromNearestToWaypoint = true, bool bleedAirOnUncouple = true, PostCoupleCutType takeOrLeaveCut = PostCoupleCutType.Leave, float waitUntilTotalSeconds = 0)
@@ -134,32 +163,6 @@ namespace WaypointQueue
             CurrentlyRefueling = false;
             AreaName = OpsController.Shared.ClosestAreaForGamePosition(Location.GetPosition()).name;
             TakeUncoupledCarsAsActiveCut = false;
-            WaitUntilGameTotalSeconds = waitUntilTotalSeconds;
-        }
-
-        [JsonConstructor]
-        public ManagedWaypoint(string id, string locomotiveId, string locationString, string coupleToCarId, bool connectAirOnCouple, bool releaseHandbrakesOnCouple, bool applyHandbrakesOnUncouple, bool bleedAirOnUncouple, int numberOfCarsToCut, bool countUncoupledFromNearestToWaypoint, PostCoupleCutType takeOrLeaveCut, SerializableVector3 serializableRefuelPoint, string refuelIndustryId, string refuelLoadName, float refuelMaxCapacity, bool willRefuel, bool currentlyRefueling, string areaName, bool takeUncoupledCarsAsActiveCut, int maxSpeedAfterRefueling, float waitUntilTotalSeconds)
-        {
-            Id = id;
-            LocomotiveId = locomotiveId;
-            LocationString = locationString;
-            CoupleToCarId = coupleToCarId;
-            ConnectAirOnCouple = connectAirOnCouple;
-            ReleaseHandbrakesOnCouple = releaseHandbrakesOnCouple;
-            ApplyHandbrakesOnUncouple = applyHandbrakesOnUncouple;
-            BleedAirOnUncouple = bleedAirOnUncouple;
-            NumberOfCarsToCut = numberOfCarsToCut;
-            CountUncoupledFromNearestToWaypoint = countUncoupledFromNearestToWaypoint;
-            TakeOrLeaveCut = takeOrLeaveCut;
-            SerializableRefuelPoint = serializableRefuelPoint;
-            RefuelIndustryId = refuelIndustryId;
-            RefuelLoadName = refuelLoadName;
-            RefuelMaxCapacity = refuelMaxCapacity;
-            WillRefuel = willRefuel;
-            CurrentlyRefueling = currentlyRefueling;
-            AreaName = areaName;
-            TakeUncoupledCarsAsActiveCut = takeUncoupledCarsAsActiveCut;
-            MaxSpeedAfterRefueling = maxSpeedAfterRefueling;
             WaitUntilGameTotalSeconds = waitUntilTotalSeconds;
         }
     }

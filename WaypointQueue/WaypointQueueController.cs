@@ -1,11 +1,14 @@
-﻿using Game.Messages;
+﻿using Game;
+using Game.Messages;
 using Game.State;
 using Helpers;
+using KeyValue.Runtime;
 using Model;
 using Model.AI;
 using Model.Definition.Data;
 using Model.Ops;
 using Model.Ops.Definition;
+using Model.Ops.Timetable;
 using RollingStock;
 using System;
 using System.Collections;
@@ -13,6 +16,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using Track;
+using UI.Common;
 using UI.EngineControls;
 using UnityEngine;
 using WaypointQueue.UUM;
@@ -100,7 +104,7 @@ namespace WaypointQueue
                     continue;
                 }
 
-                Loader.LogDebug($"Loco {entry.Locomotive.Ident} has no active waypoint during tick update");
+                //Loader.LogDebug($"Loco {entry.Locomotive.Ident} has no active waypoint during tick update");
 
                 // Resolve waypoint order
                 /**
@@ -110,6 +114,22 @@ namespace WaypointQueue
                  */
                 if (entry.UnresolvedWaypoint != null)
                 {
+                    if (entry.UnresolvedWaypoint.CurrentlyWaiting)
+                    {
+                        if (TimeWeather.Now.TotalSeconds >= entry.UnresolvedWaypoint.WaitUntilGameTotalSeconds)
+                        {
+                            entry.UnresolvedWaypoint.WillWait = false;
+                            entry.UnresolvedWaypoint.CurrentlyWaiting = false;
+                            // We don't want to start waiting until after we resolve the current waypoint orders, but we also don't want that resolving logic to run again after we are finished waiting
+                            Loader.Log($"Loco {entry.UnresolvedWaypoint.Locomotive.Ident} done waiting");
+                            goto AfterWaiting;
+                        }
+                        else
+                        {
+                            continue;
+                        }
+                    }
+
                     if (entry.UnresolvedWaypoint.WillRefuel && !entry.UnresolvedWaypoint.CurrentlyRefueling)
                     {
                         Loader.Log($"Start currently refueling {entry.Locomotive.Ident}");
@@ -149,6 +169,38 @@ namespace WaypointQueue
                     }
 
                     ResolveWaypointOrders(entry.UnresolvedWaypoint);
+                    
+                    if (entry.UnresolvedWaypoint.WillWait)
+                    {
+                        if (entry.UnresolvedWaypoint.DurationOrSpecificTime == ManagedWaypoint.WaitType.Duration && entry.UnresolvedWaypoint.WaitForDurationMinutes > 0)
+                        {
+                            GameDateTime waitUntilTime = TimeWeather.Now.AddingMinutes(entry.UnresolvedWaypoint.WaitForDurationMinutes);
+                            entry.UnresolvedWaypoint.WaitUntilGameTotalSeconds = waitUntilTime.TotalSeconds;
+                            entry.UnresolvedWaypoint.CurrentlyWaiting = true;
+                            Loader.Log($"Loco {entry.UnresolvedWaypoint.Locomotive.Ident} waiting {entry.UnresolvedWaypoint.WaitForDurationMinutes}m until {waitUntilTime}");
+                            OnWaypointsUpdated?.Invoke();
+                            continue;
+                        }
+
+                        if (entry.UnresolvedWaypoint.DurationOrSpecificTime == ManagedWaypoint.WaitType.SpecificTime)
+                        {
+                            if(TimetableReader.TryParseTime(entry.UnresolvedWaypoint.WaitUntilTimeString, out TimetableTime time))
+                            {
+                                entry.UnresolvedWaypoint.SetWaitUntilByMinutes(time.Minutes, out GameDateTime waitUntilTime);
+                                entry.UnresolvedWaypoint.CurrentlyWaiting = true;
+                                Loader.Log($"Loco {entry.UnresolvedWaypoint.Locomotive.Ident} waiting until {waitUntilTime}");
+                                OnWaypointsUpdated?.Invoke();
+                                continue;
+                            }
+                            else
+                            {
+                                Loader.Log($"Error parsing time: \"{entry.UnresolvedWaypoint.WaitUntilTimeString}\"");
+                                Toast.Present("Waypoint wait time must be in HH:MM 24-hour format.");
+                            }
+                        }
+                    }
+                    AfterWaiting:
+
                     entry.UnresolvedWaypoint = null;
                     // RemoveCurrentWaypoint gets called as a side effect of the ClearWaypoint postfix
                     ordersHelper.ClearWaypoint();
@@ -206,9 +258,9 @@ namespace WaypointQueue
                 Loader.LogDebug($"Found existing waypoint list for {loco.Ident}");
             }
 
-            ManagedWaypoint waypoint = new ManagedWaypoint(loco, location, coupleToCarId, 
-                connectAirOnCouple: Loader.Settings.ConnectAirByDefault, 
-                releaseHandbrakesOnCouple: Loader.Settings.ReleaseHandbrakesByDefault, 
+            ManagedWaypoint waypoint = new ManagedWaypoint(loco, location, coupleToCarId,
+                connectAirOnCouple: Loader.Settings.ConnectAirByDefault,
+                releaseHandbrakesOnCouple: Loader.Settings.ReleaseHandbrakesByDefault,
                 applyHandbrakeOnUncouple: Loader.Settings.ApplyHandbrakesByDefault,
                 bleedAirOnUncouple: Loader.Settings.BleedAirByDefault);
             CheckNearbyFuelLoaders(waypoint);
@@ -567,12 +619,11 @@ namespace WaypointQueue
                 {
                     hasLocation = Graph.Shared.TryGetLocationFromWorldPoint(targetLoader.transform.position, 10f, out loaderLocation);
                 }
-                catch (NullReferenceException e)
+                catch (NullReferenceException)
                 {
-                    //Loader.LogDebug($"Failed to get location for target loader: {e}");
                     continue;
                 }
-                Loader.LogDebug($"Target {targetLoader.load?.name} loader transform was not null");
+                //Loader.LogDebug($"Target {targetLoader.load?.name} loader transform was not null");
 
                 if (hasLocation)
                 {
