@@ -225,7 +225,19 @@ namespace WaypointQueue
                 }
             }
 
-            WaypointWindow.Shared.BuildWaypointSection(mw, number, builder);
+            WaypointWindow.Shared.BuildWaypointSection(
+             mw,
+             number,
+             builder,
+             onChanged: () =>
+             {
+                 SaveAndRebuild(route);
+             },
+             onDelete: () =>
+             {
+                 route.Waypoints.Remove(mw);
+                 SaveAndRebuild(route);
+             });
         }
 
         private void AssignToSelectedLoco(RouteDefinition route, bool append)

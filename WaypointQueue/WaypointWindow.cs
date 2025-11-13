@@ -218,7 +218,7 @@ namespace WaypointQueue
                 });
         }
 
-        internal void BuildWaypointSection(ManagedWaypoint waypoint, int number, UIPanelBuilder builder)
+        internal void BuildWaypointSection(ManagedWaypoint waypoint, int number, UIPanelBuilder builder, Action onChanged = null, Action onDelete = null) //added callbacks to update waypoints in the route manager window
         {
             builder.AddHRule();
             builder.Spacer(16f);
@@ -237,7 +237,16 @@ namespace WaypointQueue
                             JumpCameraToWaypoint(waypoint);
                             break;
                         case 1:
-                            WaypointQueueController.Shared.RemoveWaypoint(waypoint);
+                            if (onDelete != null) //check for RouteManager ownership
+                            {
+                                // RouteManager owns this waypoint
+                                onDelete();
+                            }
+                            else
+                            {
+                                // WaypointQueue owns this waypoint
+                                WaypointQueueController.Shared.RemoveWaypoint(waypoint);
+                            }
                             break;
                         default:
                             break;
@@ -260,7 +269,8 @@ namespace WaypointQueue
                 {
                     // Map: 0 = No change (null), 1 = None (""), 2+ = actual symbol names
                     waypoint.TimetableSymbol = values[idx];                 // null or "" or actual symbol
-                    WaypointQueueController.Shared.UpdateWaypoint(waypoint); // persist/update UI
+                    if (onChanged != null) onChanged(); //check for RouteManager ownership
+                    else WaypointQueueController.Shared.UpdateWaypoint(waypoint);
                 })
                 .Width(200)
                 .Height(10f); 
@@ -294,7 +304,8 @@ namespace WaypointQueue
                     field.AddButtonCompact("Swap", () =>
                     {
                         waypoint.TakeOrLeaveCut = waypoint.TakeOrLeaveCut == ManagedWaypoint.PostCoupleCutType.Take ? ManagedWaypoint.PostCoupleCutType.Leave : ManagedWaypoint.PostCoupleCutType.Take;
-                        WaypointQueueController.Shared.UpdateWaypoint(waypoint);
+                        if (onChanged != null) onChanged();
+                        else WaypointQueueController.Shared.UpdateWaypoint(waypoint);
                     });
                     field.Spacer(8f);
                 }));
@@ -341,7 +352,8 @@ namespace WaypointQueue
                     builder.AddDropdown(new List<string> { "Closest to waypoint", "Furthest from waypoint" }, waypoint.CountUncoupledFromNearestToWaypoint ? 0 : 1, (int value) =>
                     {
                         waypoint.CountUncoupledFromNearestToWaypoint = !waypoint.CountUncoupledFromNearestToWaypoint;
-                        WaypointQueueController.Shared.UpdateWaypoint(waypoint);
+                        if (onChanged != null) onChanged();
+                        else WaypointQueueController.Shared.UpdateWaypoint(waypoint);
                     }));
 
                     if (Loader.Settings.UseCompactLayout)
@@ -359,7 +371,8 @@ namespace WaypointQueue
                     var takeActiveCutField = builder.AddField($"Take active cut", builder.AddToggle(() => waypoint.TakeUncoupledCarsAsActiveCut, delegate (bool value)
                     {
                         waypoint.TakeUncoupledCarsAsActiveCut = value;
-                        WaypointQueueController.Shared.UpdateWaypoint(waypoint);
+                        if (onChanged != null) onChanged();
+                        else WaypointQueueController.Shared.UpdateWaypoint(waypoint);
                     }));
 
                     if (Loader.Settings.EnableTooltips)
@@ -378,7 +391,8 @@ namespace WaypointQueue
                 builder.AddField($"Refuel {waypoint.RefuelLoadName}", builder.AddToggle(() => waypoint.WillRefuel, delegate (bool value)
                 {
                     waypoint.WillRefuel = value;
-                    WaypointQueueController.Shared.UpdateWaypoint(waypoint);
+                    if (onChanged != null) onChanged();
+                    else WaypointQueueController.Shared.UpdateWaypoint(waypoint);
                 }));
             }
         }

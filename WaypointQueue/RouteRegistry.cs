@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using WaypointQueue.UUM;
 
 namespace WaypointQueue
 {
@@ -17,6 +18,24 @@ namespace WaypointQueue
         public static void ReloadFromDisk()
         {
             Routes = RouteSaveManager.LoadAll();
+
+            foreach (var route in Routes)
+            {
+                if (route?.Waypoints == null) continue;
+
+                foreach (var wp in route.Waypoints)
+                {
+                    try
+                    {
+                        wp?.Load();
+                    }
+                    catch (Exception ex)
+                    {
+                        Loader.Log($"[Routes] Failed to hydrate waypoint {wp?.Id} for route '{route?.Name}': {ex}");
+                    }
+                }
+            }
+
             RaiseChanged();
         }
 

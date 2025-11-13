@@ -115,7 +115,12 @@ namespace WaypointQueue
             AreaName = OpsController.Shared.ClosestAreaForGamePosition(Location.GetPosition()).name;
         }
 
-        public ManagedWaypoint(Car locomotive, Location location, string coupleToCarId = "", bool connectAirOnCouple = true, bool releaseHandbrakesOnCouple = true, bool applyHandbrakeOnUncouple = true, int numberOfCarsToCut = 0, bool countUncoupledFromNearestToWaypoint = true, bool bleedAirOnUncouple = true, PostCoupleCutType takeOrLeaveCut = PostCoupleCutType.Leave)
+        public ManagedWaypoint(Car locomotive, Location location,
+            string coupleToCarId = "", bool connectAirOnCouple = true,
+            bool releaseHandbrakesOnCouple = true, bool applyHandbrakeOnUncouple = true,
+            int numberOfCarsToCut = 0, bool countUncoupledFromNearestToWaypoint = true,
+            bool bleedAirOnUncouple = true, PostCoupleCutType takeOrLeaveCut = PostCoupleCutType.Take,
+            string timetableSymbol = null)
         {
             Id = Guid.NewGuid().ToString();
             Locomotive = locomotive;
