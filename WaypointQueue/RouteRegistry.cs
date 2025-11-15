@@ -60,7 +60,7 @@ namespace WaypointQueue
             Routes.RemoveAll(x => x.Id == id);
             RaiseChanged();
         }
-        
+
         public static void Rename(RouteDefinition route, string newName)
         {
             if (route == null) return;
@@ -68,7 +68,7 @@ namespace WaypointQueue
             if (newName.Length == 0 || newName == route.Name) return;
 
             route.Name = newName.Trim();
-            
+
             RaiseChanged();
         }
     }

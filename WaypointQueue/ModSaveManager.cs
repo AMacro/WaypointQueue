@@ -29,7 +29,7 @@ namespace WaypointQueue
 
         public class RouteAssignmentSaveState
         {
-            public int Version {  get; set; }
+            public int Version { get; set; }
             public List<RouteAssignment> Assignments { get; set; }
         }
 
@@ -221,7 +221,7 @@ namespace WaypointQueue
         static void StartObserveringPostfix()
         {
             Loader.LogDebug($"StartObservering postfix");
-            if(_timeAlreadyStarted) return;
+            if (_timeAlreadyStarted) return;
             _timeAlreadyStarted = true;
             Loader.LogDebug($"The dawn of time");
 

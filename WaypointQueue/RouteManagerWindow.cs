@@ -1,5 +1,4 @@
-﻿using Model.Ops;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using Track;
 using UI;
@@ -195,7 +194,7 @@ namespace WaypointQueue
                 });
             });
         }
-        
+
         private void PresentDeleteAllModal(RouteDefinition route)
         {
             ModalAlertController.Present($"Delete all waypoints for route '{route.Name}'?", "This cannot be undone.",

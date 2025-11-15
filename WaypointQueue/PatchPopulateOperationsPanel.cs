@@ -1,13 +1,11 @@
-﻿using System.Linq;
-using System.Reflection;
-using HarmonyLib;
+﻿using HarmonyLib;
+using Model;
+using Model.Definition;
+using System.Linq;
 using UI.Builder;
-using WaypointQueue;          
-using WaypointQueue.UUM;     
-using Model;                 
-using Model.Definition;      
 using UI.CarInspector;
 using UI.Common;
+using WaypointQueue.UUM;
 
 namespace WaypointQueue
 {
@@ -16,12 +14,12 @@ namespace WaypointQueue
     {
         static void Postfix(CarInspector __instance, UIPanelBuilder builder, ref Car ____car)
         {
-            
+
             var car = ____car;
             if (car == null) return;
 
             var carID = car.id;
-            
+
             if (!car.Archetype.IsLocomotive()) return;
 
             builder.Spacer(2f);
@@ -30,22 +28,22 @@ namespace WaypointQueue
             {
                 var routes = RouteRegistry.Routes;
 
-                
+
                 var names = new System.Collections.Generic.List<string> { "(select route)" };
                 names.AddRange(routes.Select(r => r.Name));
 
-                
-                var (currentRouteId, currentLoop) = RouteAssignmentRegistry.Get(carID); 
 
-                
+                var (currentRouteId, currentLoop) = RouteAssignmentRegistry.Get(carID);
+
+
                 int selectedIndex = 0;
                 if (!string.IsNullOrEmpty(currentRouteId))
                 {
                     int idx = routes.FindIndex(r => r.Id == currentRouteId);
-                    if (idx >= 0) selectedIndex = idx + 1; 
+                    if (idx >= 0) selectedIndex = idx + 1;
                 }
 
-                
+
                 section.HStack(row =>
                 {
                     row.AddLabel("Route").Width(75f);
@@ -55,7 +53,7 @@ namespace WaypointQueue
                         selectedIndex,
                         (int newIdx) =>
                         {
-                            
+
                             string newRouteId = null;
                             if (newIdx > 0)
                             {
@@ -64,11 +62,11 @@ namespace WaypointQueue
                                     newRouteId = routes[routeIdx].Id;
                             }
 
-                            
-                            var (_, prevLoop) = RouteAssignmentRegistry.Get(carID);
-                            RouteAssignmentRegistry.Set(carID, newRouteId, prevLoop);  
 
-                            
+                            var (_, prevLoop) = RouteAssignmentRegistry.Get(carID);
+                            RouteAssignmentRegistry.Set(carID, newRouteId, prevLoop);
+
+
                             section.Rebuild();
                         });
                     dd.Width(240f);
@@ -89,18 +87,18 @@ namespace WaypointQueue
 
                 section.Spacer(6f);
 
-                
+
                 if (!string.IsNullOrEmpty(currentRouteId))
                 {
                     section.HStack(loopRow =>
                     {
                         loopRow.AddToggle(
-                            () => RouteAssignmentRegistry.Get(carID).loop,   
+                            () => RouteAssignmentRegistry.Get(carID).loop,
                             (bool v) =>
                             {
-                                
+
                                 var (rid, _) = RouteAssignmentRegistry.Get(carID);
-                                RouteAssignmentRegistry.Set(carID, rid, v);   
+                                RouteAssignmentRegistry.Set(carID, rid, v);
                             });
                         loopRow.AddLabel("Loop");
                     });

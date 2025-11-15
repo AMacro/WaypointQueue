@@ -18,7 +18,7 @@ namespace WaypointQueue
 
         public static event Action OnChanged;
 
-        
+
         public static (string routeId, bool loop) Get(string locoId)
         {
             if (string.IsNullOrEmpty(locoId)) return (null, false);
@@ -35,7 +35,7 @@ namespace WaypointQueue
 
         public static List<RouteAssignment> All() => _byLocoId.Values.ToList();
 
-        
+
         public static void Set(string locoId, string routeId, bool loop)
         {
             if (string.IsNullOrEmpty(locoId)) return;
@@ -66,7 +66,7 @@ namespace WaypointQueue
             OnChanged?.Invoke();
         }
 
-        
+
         public static void ReplaceAll(IEnumerable<RouteAssignment> items)
         {
             _byLocoId.Clear();

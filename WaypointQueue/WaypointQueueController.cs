@@ -3,7 +3,6 @@ using Game.State;
 using Helpers;
 using Model;
 using Model.AI;
-using Model.Definition;
 using Model.Definition.Data;
 using Model.Ops;
 using Model.Ops.Definition;
@@ -223,9 +222,9 @@ namespace WaypointQueue
                 Loader.LogDebug($"Found existing waypoint list for {loco.Ident}");
             }
 
-            ManagedWaypoint waypoint = new ManagedWaypoint(loco, location, coupleToCarId, 
-                connectAirOnCouple: Loader.Settings.ConnectAirByDefault, 
-                releaseHandbrakesOnCouple: Loader.Settings.ReleaseHandbrakesByDefault, 
+            ManagedWaypoint waypoint = new ManagedWaypoint(loco, location, coupleToCarId,
+                connectAirOnCouple: Loader.Settings.ConnectAirByDefault,
+                releaseHandbrakesOnCouple: Loader.Settings.ReleaseHandbrakesByDefault,
                 applyHandbrakeOnUncouple: Loader.Settings.ApplyHandbrakesByDefault,
                 bleedAirOnUncouple: Loader.Settings.BleedAirByDefault);
             CheckNearbyFuelLoaders(waypoint);
@@ -938,7 +937,7 @@ namespace WaypointQueue
                 //    carsToTieDown++;
                 //    continue;
                 //}
-                    
+
                 cars[i].SetHandbrake(true);
             }
         }
@@ -1055,7 +1054,7 @@ namespace WaypointQueue
             if (list != null)
                 foreach (var mw in list)
                 {
-                    
+
                     var copy = new ManagedWaypoint(
                         mw.Location,
                         mw.CoupleToCarId,

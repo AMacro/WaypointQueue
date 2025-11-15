@@ -90,7 +90,7 @@ namespace WaypointQueue
 
         public void Load()
         {
-            
+
             if (string.IsNullOrEmpty(LocomotiveId))
             {
                 Location = Graph.Shared.ResolveLocationString(LocationString);
