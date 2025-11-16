@@ -50,18 +50,7 @@ namespace WaypointQueue
         public string LocomotiveId { get; private set; }
 
         [JsonIgnore]
-        public Car Locomotive
-        {
-            get
-            {
-                return Locomotive;
-            }
-            set
-            {
-                Locomotive = value;
-                LocomotiveId = value?.id ?? "";
-            }
-        }
+        public Car Locomotive { get; private set; }
 
         [JsonProperty]
         public string LocationString { get; private set; }
@@ -163,11 +152,6 @@ namespace WaypointQueue
 
         public bool TryResolveLocation(out Location loc)
         {
-            if (Location != null)
-            {
-                loc = Location;
-                return true;
-            }
             try
             {
                 loc = Graph.Shared.ResolveLocationString(LocationString);
@@ -192,8 +176,6 @@ namespace WaypointQueue
             WaitUntilGameTotalSeconds = waitUntilTime.TotalSeconds;
         }
 
-
-
         public void ClearWaiting()
         {
             WillWait = false;
@@ -205,14 +187,28 @@ namespace WaypointQueue
             WaitUntilGameTotalSeconds = 0;
         }
 
-        public ManagedWaypoint CopyForRoute(Car loco = null)
+        public bool TryCopyForRoute(out ManagedWaypoint copy, Car loco = null)
         {
-            string serializedWaypoint = JsonConvert.SerializeObject(this);
-            ManagedWaypoint copy = JsonConvert.DeserializeObject<ManagedWaypoint>(serializedWaypoint);
-            copy.Id = Guid.NewGuid().ToString();
-            copy.Locomotive = loco;
-            copy.Location = Location;
-            return copy;
+            if (IsValid())
+            {
+                string serializedWaypoint = JsonConvert.SerializeObject(this);
+                copy = JsonConvert.DeserializeObject<ManagedWaypoint>(serializedWaypoint);
+                copy.Id = Guid.NewGuid().ToString();
+                copy.Locomotive = loco;
+                copy.LocomotiveId = loco?.id ?? null;
+                copy.Location = Location;
+                return true;
+            }
+            else
+            {
+                copy = null;
+                return false;
+            }
+        }
+
+        public override string ToString()
+        {
+            return JsonConvert.SerializeObject(this);
         }
     }
 

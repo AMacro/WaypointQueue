@@ -223,9 +223,9 @@ namespace WaypointQueue
                         var assignedRoute = RouteRegistry.GetById(assignedRouteId);
                         if (assignedRoute != null)
                         {
-                            Loader.Log($"[WaypointQueue] Loco {entry.Locomotive.Ident}: queue empty & looping enabled → reassigning route '{assignedRoute.Name}' (apply mode).");
-                            // Re-apply the saved route in APPLY mode (append: false)
-                            AssignRouteToLoco(assignedRoute, entry.Locomotive, append: false);
+                            Loader.Log($"Loco {entry.Locomotive.Ident}: queue empty & looping enabled → reassigning route '{assignedRoute.Name}' (apply mode).");
+                            // Re-apply the saved route, but we already know the waypoint list is currently empty so just append
+                            AddWaypointsFromRoute(entry.Locomotive, assignedRoute, append: true);
 
                             // After reassigning, continue to next loco without marking for removal
                             continue;
@@ -306,16 +306,21 @@ namespace WaypointQueue
                 ClearWaypointState(loco);
             }
 
+            Loader.LogDebug($"Adding waypoints from {route.Name} to {loco.Ident} queue");
+
             var entry = GetOrAddLocoWaypointState(loco);
 
             int validWaypointsAdded = 0;
             foreach (var rw in route.Waypoints)
             {
-                if (rw.IsValid())
+                if (rw.TryCopyForRoute(out ManagedWaypoint copy, loco: loco))
                 {
-                    ManagedWaypoint copy = rw.CopyForRoute(loco);
                     entry.Waypoints.Add(copy);
                     validWaypointsAdded++;
+                }
+                else
+                {
+                    Loader.LogDebug($"Failed to add waypoint {rw.Id} from route {route.Name} to {loco.Ident} queue");
                 }
             }
             Loader.Log($"Added {validWaypointsAdded} waypoints for {loco.Ident} from route {route.Name}");
@@ -1095,62 +1100,6 @@ namespace WaypointQueue
                 _coroutine = StartCoroutine(Ticker());
             }
         }
-        public void AssignRouteToLoco(RouteDefinition route, Car loco, bool append)
-        {
-            if (route == null || loco == null) return;
-
-            if (!append)
-            {
-                ClearWaypointState(loco);
-            }
-
-            foreach (var rw in route.Waypoints)
-            {
-                // route waypoint may not have a resolved Location yet
-                Location loc = rw.Location != null
-                    ? rw.Location
-                    : Track.Graph.Shared.ResolveLocationString(rw.LocationString);
-
-                // add to loco's queue using existing plumbing (creates a ManagedWaypoint with defaults)
-                AddWaypoint(loco, loc, rw.CoupleToCarId, isReplacing: false);
-
-                var list = GetWaypointList(loco);
-                if (list is { Count: > 0 })
-                {
-                    var last = list[list.Count - 1];
-
-                    last.ConnectAirOnCouple = rw.ConnectAirOnCouple;
-                    last.ReleaseHandbrakesOnCouple = rw.ReleaseHandbrakesOnCouple;
-                    last.ApplyHandbrakesOnUncouple = rw.ApplyHandbrakesOnUncouple;
-                    last.BleedAirOnUncouple = rw.BleedAirOnUncouple;
-                    last.NumberOfCarsToCut = rw.NumberOfCarsToCut;
-                    last.CountUncoupledFromNearestToWaypoint = rw.CountUncoupledFromNearestToWaypoint;
-                    last.TakeOrLeaveCut = rw.TakeOrLeaveCut;
-                    last.TakeUncoupledCarsAsActiveCut = rw.TakeUncoupledCarsAsActiveCut;
-
-                    last.SerializableRefuelPoint = rw.SerializableRefuelPoint;
-                    last.RefuelIndustryId = rw.RefuelIndustryId;
-                    last.RefuelLoadName = rw.RefuelLoadName;
-                    last.RefuelMaxCapacity = rw.RefuelMaxCapacity;
-                    last.WillRefuel = rw.WillRefuel;
-                    last.TimetableSymbol = rw.TimetableSymbol;
-                }
-            }
-        }
-
-        public RouteDefinition CaptureRouteFromLocoQueue(Model.Car loco, string routeName)
-        {
-            var route = new RouteDefinition { Name = string.IsNullOrWhiteSpace(routeName) ? "New Route" : routeName };
-            var list = GetWaypointList(loco);
-            if (list != null)
-                foreach (var mw in list)
-                {
-                    ManagedWaypoint copy = mw.CopyForRoute();
-                    route.Waypoints.Add(copy);
-                }
-            return route;
-        }
-
 
         private void ApplyTimetableSymbolIfRequested(ManagedWaypoint waypoint)
         {

@@ -250,10 +250,13 @@ namespace WaypointQueue
             {
                 foreach (var mw in list)
                 {
-                    if (mw.IsValid())
+                    if (mw.TryCopyForRoute(out ManagedWaypoint copy))
                     {
-                        ManagedWaypoint copy = mw.CopyForRoute();
                         route.Waypoints.Add(copy);
+                    }
+                    else
+                    {
+                        Loader.LogDebug($"Failed to copy waypoint {mw.Id} to route {route}");
                     }
                 }
             }
@@ -271,10 +274,13 @@ namespace WaypointQueue
 
             foreach (var mw in list)
             {
-                if (mw.IsValid())
+                if (mw.TryCopyForRoute(out ManagedWaypoint copy))
                 {
-                    ManagedWaypoint copy = mw.CopyForRoute();
                     route.Waypoints.Add(copy);
+                }
+                else
+                {
+                    Loader.LogDebug($"Failed to copy waypoint {mw.Id} to route {route}");
                 }
             }
 
