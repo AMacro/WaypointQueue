@@ -27,6 +27,7 @@ namespace WaypointQueue
             ApplyHandbrakesOnUncouple = Loader.Settings.ApplyHandbrakesByDefault;
             BleedAirOnUncouple = Loader.Settings.BleedAirByDefault;
             AreaName = OpsController.Shared.ClosestAreaForGamePosition(Location.GetPosition()).name;
+            ShowPostCouplingCut = Loader.Settings.ShowPostCouplingCutByDefault;
         }
 
         public enum WaitType
@@ -89,6 +90,7 @@ namespace WaypointQueue
         public bool CountUncoupledFromNearestToWaypoint { get; set; } = true;
         public PostCoupleCutType TakeOrLeaveCut { get; set; } = PostCoupleCutType.Leave;
         public bool TakeUncoupledCarsAsActiveCut { get; set; }
+        public bool ShowPostCouplingCut { get; set; }
 
         [JsonIgnore]
         public bool CanRefuelNearby
@@ -124,7 +126,7 @@ namespace WaypointQueue
         public TodayOrTomorrow WaitUntilDay { get; set; } = TodayOrTomorrow.Today;
         public int WaitForDurationMinutes { get; set; }
         public double WaitUntilGameTotalSeconds { get; set; }
-        public bool StopAtWaypoint { get; set; }
+        public bool StopAtWaypoint { get; set; } = true;
         public int WaypointTargetSpeed { get; set; } = 0;
 
         public bool IsValid()
@@ -141,6 +143,11 @@ namespace WaypointQueue
         {
             TryResolveLocation(out Location loc);
             TryResolveLocomotive(out Car loco);
+
+            if (IsCoupling && NumberOfCarsToCut > 0)
+            {
+                ShowPostCouplingCut = true;
+            }
         }
 
         public bool TryResolveLocomotive(out Car loco)

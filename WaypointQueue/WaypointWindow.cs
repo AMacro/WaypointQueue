@@ -287,17 +287,20 @@ namespace WaypointQueue
                 }));
             }
 
-            builder.AddField($"Stop at waypoint", builder.AddToggle(() => waypoint.StopAtWaypoint, delegate (bool value)
+            if (!waypoint.IsCoupling)
             {
-                waypoint.StopAtWaypoint = value;
-                if (value)
+                builder.AddField($"Stop at waypoint", builder.AddToggle(() => waypoint.StopAtWaypoint, delegate (bool value)
                 {
-                    waypoint.SetTargetSpeedToOrdersMax();
-                }
-                onWaypointChange(waypoint);
-            }));
+                    waypoint.StopAtWaypoint = value;
+                    if (value)
+                    {
+                        waypoint.SetTargetSpeedToOrdersMax();
+                    }
+                    onWaypointChange(waypoint);
+                }));
+            }
 
-            if (!waypoint.StopAtWaypoint)
+            if (!waypoint.StopAtWaypoint && !waypoint.IsCoupling)
             {
                 builder.AddField($"Passing speed", builder.HStack((UIPanelBuilder field) =>
                 {
@@ -338,42 +341,53 @@ namespace WaypointQueue
                     AddConnectAirAndReleaseBrakeToggles(waypoint, builder, onWaypointChange);
                 }
 
-                var postCouplingCutField = builder.AddField($"Post-coupling cut", builder.HStack(delegate (UIPanelBuilder field)
+                if (!waypoint.ShowPostCouplingCut)
                 {
-                    string prefix = waypoint.TakeOrLeaveCut == ManagedWaypoint.PostCoupleCutType.Take ? "Take " : "Leave ";
-                    AddCarCutButtons(waypoint, field, onWaypointChange, prefix);
-                    field.AddButtonCompact("Swap", () =>
+                    builder.AddField($"Then perform cut", builder.AddToggle(() => waypoint.ShowPostCouplingCut, delegate (bool value)
                     {
-                        waypoint.TakeOrLeaveCut = waypoint.TakeOrLeaveCut == ManagedWaypoint.PostCoupleCutType.Take ? ManagedWaypoint.PostCoupleCutType.Leave : ManagedWaypoint.PostCoupleCutType.Take;
+                        waypoint.ShowPostCouplingCut = value;
                         onWaypointChange(waypoint);
-
-                    });
-                    field.Spacer(8f);
-                }));
-
-                if (Loader.Settings.EnableTooltips)
-                {
-                    postCouplingCutField.RectTransform.Find("Label").GetComponent<TMP_Text>().rectTransform.Tooltip("Cutting cars after coupling", "After coupling, you can \"Take\" or \"Leave\" a number of cars. " +
-                    "This is very useful when queueing switching orders." +
-                    "\n\nIf you couple to a cut of 3 cars and \"Take\" 2 cars, you will leave with the 2 closest cars and the 3rd car will be left behind. " +
-                    "You \"Take\" cars from the cut you are coupling to." +
-                    "\n\nIf you are coupling 2 additional cars to 1 car already spotted, you can \"Leave\" 2 cars and continue to the next queued waypoint. " +
-                    "You \"Leave\" cars from your current consist." +
-                    "\n\nIf you Take or Leave 0 cars, you will NOT perform a post-coupling cut. In other words, you will remain coupled to the full cut.");
+                    }));
                 }
-
-                if (waypoint.NumberOfCarsToCut > 0)
+                else
                 {
-                    if (Loader.Settings.UseCompactLayout)
+                    var postCouplingCutField = builder.AddField($"Post-coupling cut", builder.HStack(delegate (UIPanelBuilder field)
                     {
-                        builder.HStack(delegate (UIPanelBuilder builder)
+                        string prefix = waypoint.TakeOrLeaveCut == ManagedWaypoint.PostCoupleCutType.Take ? "Take " : "Leave ";
+                        AddCarCutButtons(waypoint, field, onWaypointChange, prefix);
+                        field.AddButtonCompact("Swap", () =>
+                        {
+                            waypoint.TakeOrLeaveCut = waypoint.TakeOrLeaveCut == ManagedWaypoint.PostCoupleCutType.Take ? ManagedWaypoint.PostCoupleCutType.Leave : ManagedWaypoint.PostCoupleCutType.Take;
+                            onWaypointChange(waypoint);
+
+                        });
+                        field.Spacer(8f);
+                    }));
+
+                    if (Loader.Settings.EnableTooltips)
                     {
-                        AddBleedAirAndSetBrakeToggles(waypoint, builder, onWaypointChange);
-                    });
+                        postCouplingCutField.RectTransform.Find("Label").GetComponent<TMP_Text>().rectTransform.Tooltip("Cutting cars after coupling", "After coupling, you can \"Take\" or \"Leave\" a number of cars. " +
+                        "This is very useful when queueing switching orders." +
+                        "\n\nIf you couple to a cut of 3 cars and \"Take\" 2 cars, you will leave with the 2 closest cars and the 3rd car will be left behind. " +
+                        "You \"Take\" cars from the cut you are coupling to." +
+                        "\n\nIf you are coupling 2 additional cars to 1 car already spotted, you can \"Leave\" 2 cars and continue to the next queued waypoint. " +
+                        "You \"Leave\" cars from your current consist." +
+                        "\n\nIf you Take or Leave 0 cars, you will NOT perform a post-coupling cut. In other words, you will remain coupled to the full cut.");
                     }
-                    else
+
+                    if (waypoint.NumberOfCarsToCut > 0)
                     {
-                        AddBleedAirAndSetBrakeToggles(waypoint, builder, onWaypointChange);
+                        if (Loader.Settings.UseCompactLayout)
+                        {
+                            builder.HStack(delegate (UIPanelBuilder builder)
+                        {
+                            AddBleedAirAndSetBrakeToggles(waypoint, builder, onWaypointChange);
+                        });
+                        }
+                        else
+                        {
+                            AddBleedAirAndSetBrakeToggles(waypoint, builder, onWaypointChange);
+                        }
                     }
                 }
             }
