@@ -178,8 +178,11 @@ namespace WaypointQueue
 
         public void SetTargetSpeedToOrdersMax()
         {
-            AutoEngineerOrdersHelper ordersHelper = WaypointQueueController.Shared.GetOrdersHelper(Locomotive);
-            WaypointTargetSpeed = ordersHelper.Orders.MaxSpeedMph;
+            if (Locomotive != null)
+            {
+                AutoEngineerOrdersHelper ordersHelper = WaypointQueueController.Shared.GetOrdersHelper(Locomotive);
+                WaypointTargetSpeed = ordersHelper.Orders.MaxSpeedMph;
+            }
         }
 
         public void SetWaitUntilByMinutes(int inputMinutesAfterMidnight, out GameDateTime waitUntilTime)
