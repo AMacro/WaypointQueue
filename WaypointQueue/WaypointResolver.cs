@@ -27,6 +27,7 @@ namespace WaypointQueue
          */
         public static bool TryHandleUnresolvedWaypoint(ManagedWaypoint wp, AutoEngineerOrdersHelper ordersHelper, Action onWaypointsUpdated)
         {
+            // Loader.LogDebug($"Trying to handle unresolved waypoint for {wp.Locomotive.Ident}:\n {wp.ToString()}");
             if (!wp.StopAtWaypoint)
             {
                 // Uncoupling orders are the only orders should get resolved if we are not stopping

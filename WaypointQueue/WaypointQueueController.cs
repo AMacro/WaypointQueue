@@ -303,13 +303,21 @@ namespace WaypointQueue
 
         public void UpdateWaypoint(ManagedWaypoint updatedWaypoint)
         {
-            List<ManagedWaypoint> waypointList = GetWaypointList(updatedWaypoint.Locomotive);
-            if (waypointList != null)
+            LocoWaypointState state = GetLocoWaypointState(updatedWaypoint.Locomotive);
+
+            if (state != null && state.Waypoints != null)
             {
-                int index = waypointList.FindIndex(w => w.Id == updatedWaypoint.Id);
+                int index = state.Waypoints.FindIndex(w => w.Id == updatedWaypoint.Id);
                 if (index >= 0)
                 {
-                    waypointList[index] = updatedWaypoint;
+                    state.Waypoints[index] = updatedWaypoint;
+
+                    if (updatedWaypoint.Id == state.UnresolvedWaypoint.Id)
+                    {
+                        Loader.LogDebug($"Updated unresolved waypoint");
+                        state.UnresolvedWaypoint = updatedWaypoint;
+                    }
+
                     Loader.LogDebug($"Invoking OnWaypointsUpdated in UpdateWaypoint");
                     OnWaypointsUpdated.Invoke();
                 }

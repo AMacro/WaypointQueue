@@ -292,7 +292,7 @@ namespace WaypointQueue
                 builder.AddField($"Stop at waypoint", builder.AddToggle(() => waypoint.StopAtWaypoint, delegate (bool value)
                 {
                     waypoint.StopAtWaypoint = value;
-                    if (value)
+                    if (!waypoint.StopAtWaypoint)
                     {
                         waypoint.SetTargetSpeedToOrdersMax();
                     }
@@ -513,7 +513,17 @@ namespace WaypointQueue
         {
             if (waypoint.CurrentlyWaiting)
             {
-                builder.AddField("Waiting until", builder.AddLabel($"{new GameDateTime(waypoint.WaitUntilGameTotalSeconds)}"));
+                builder.AddField("Waiting until", builder.HStack((UIPanelBuilder field) =>
+                {
+                    field.AddLabel($"{new GameDateTime(waypoint.WaitUntilGameTotalSeconds)}");
+                    field.Spacer();
+                    field.AddButtonCompact("Skip wait", delegate
+                    {
+                        waypoint.ClearWaiting();
+                        onWaypointChange(waypoint);
+                    });
+                    field.Spacer(8f);
+                }));
                 return;
             }
             if (!waypoint.WillWait)

@@ -202,6 +202,7 @@ namespace WaypointQueue
 
         public void ClearWaiting()
         {
+            Loader.LogDebug($"Clear waiting for {Locomotive.Ident} at {LocationString}");
             WillWait = false;
             CurrentlyWaiting = false;
             DurationOrSpecificTime = WaitType.Duration;
@@ -232,7 +233,7 @@ namespace WaypointQueue
 
         public override string ToString()
         {
-            return JsonConvert.SerializeObject(this);
+            return JsonConvert.SerializeObject(this, Formatting.Indented);
         }
     }
 
