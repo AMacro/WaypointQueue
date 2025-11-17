@@ -124,7 +124,7 @@ namespace WaypointQueue
         public TodayOrTomorrow WaitUntilDay { get; set; } = TodayOrTomorrow.Today;
         public int WaitForDurationMinutes { get; set; }
         public double WaitUntilGameTotalSeconds { get; set; }
-        public bool DoNotStop { get; set; }
+        public bool StopAtWaypoint { get; set; }
         public int WaypointTargetSpeed { get; set; } = 0;
 
         public bool IsValid()

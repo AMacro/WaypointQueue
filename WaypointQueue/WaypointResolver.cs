@@ -27,7 +27,7 @@ namespace WaypointQueue
          */
         public static bool TryHandleUnresolvedWaypoint(ManagedWaypoint wp, AutoEngineerOrdersHelper ordersHelper, Action onWaypointsUpdated)
         {
-            if (wp.DoNotStop)
+            if (!wp.StopAtWaypoint)
             {
                 // Uncoupling orders are the only orders should get resolved if we are not stopping
                 ResolveUncouplingOrders(wp);
@@ -78,7 +78,7 @@ namespace WaypointQueue
              * Unless explicitly not stopping, loco needs a complete stop before resolving coupling or uncoupling orders.
              * Otherwise, some cars may be uncoupled and then recoupled if the train still has momentum.
              */
-            if (!wp.DoNotStop && Math.Abs(wp.Locomotive.velocity) > 0)
+            if (wp.StopAtWaypoint && Math.Abs(wp.Locomotive.velocity) > 0)
             {
                 Loader.LogDebug($"Locomotive not stopped, continuing");
                 return false;

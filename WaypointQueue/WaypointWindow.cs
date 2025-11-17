@@ -287,17 +287,17 @@ namespace WaypointQueue
                 }));
             }
 
-            builder.AddField($"Stop at waypoint", builder.AddToggle(() => !waypoint.DoNotStop, delegate (bool value)
+            builder.AddField($"Stop at waypoint", builder.AddToggle(() => waypoint.StopAtWaypoint, delegate (bool value)
             {
-                waypoint.DoNotStop = !waypoint.DoNotStop;
-                if (waypoint.DoNotStop)
+                waypoint.StopAtWaypoint = value;
+                if (value)
                 {
                     waypoint.SetTargetSpeedToOrdersMax();
                 }
                 onWaypointChange(waypoint);
             }));
 
-            if (waypoint.DoNotStop)
+            if (!waypoint.StopAtWaypoint)
             {
                 builder.AddField($"Passing speed", builder.HStack((UIPanelBuilder field) =>
                 {
@@ -318,7 +318,7 @@ namespace WaypointQueue
                 }));
             }
 
-            if (waypoint.IsCoupling && !waypoint.CurrentlyWaiting && !waypoint.DoNotStop)
+            if (waypoint.IsCoupling && !waypoint.CurrentlyWaiting && waypoint.StopAtWaypoint)
             {
                 TrainController.Shared.TryGetCarForId(waypoint.CoupleToCarId, out Car couplingToCar);
                 builder.AddField($"Couple to ", builder.HStack(delegate (UIPanelBuilder field)
@@ -425,7 +425,7 @@ namespace WaypointQueue
                 }
             }
 
-            if (waypoint.CanRefuelNearby && !waypoint.CurrentlyWaiting && !waypoint.DoNotStop)
+            if (waypoint.CanRefuelNearby && !waypoint.CurrentlyWaiting && waypoint.StopAtWaypoint)
             {
                 builder.AddField($"Refuel {waypoint.RefuelLoadName}", builder.AddToggle(() => waypoint.WillRefuel, delegate (bool value)
                 {
@@ -434,7 +434,7 @@ namespace WaypointQueue
                 }));
             }
 
-            if (!waypoint.DoNotStop)
+            if (waypoint.StopAtWaypoint)
             {
                 AddWaitingSection(waypoint, builder, onWaypointChange);
             }

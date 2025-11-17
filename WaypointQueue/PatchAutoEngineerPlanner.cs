@@ -56,7 +56,7 @@ namespace WaypointQueue
                 }
 
                 // Only update targets if we are not stopping
-                if (!waypointState.UnresolvedWaypoint.DoNotStop)
+                if (waypointState.UnresolvedWaypoint.StopAtWaypoint)
                 {
                     return;
                 }
@@ -133,7 +133,7 @@ namespace WaypointQueue
                 if (!WaypointQueueController.Shared.TryGetActiveWaypointFor(____locomotive, out ManagedWaypoint managed))
                     return;
 
-                if (!managed.DoNotStop || managed.WaypointTargetSpeed <= 0)
+                if (managed.StopAtWaypoint || managed.WaypointTargetSpeed <= 0)
                     return;
 
                 float speedMph = ____locomotive.VelocityMphAbs;
