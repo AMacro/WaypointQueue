@@ -278,7 +278,7 @@ namespace WaypointQueue
             {
                 var (labels, values, selectedIndex) = BuildTimetableSymbolChoices(waypoint.TimetableSymbol);
 
-                builder.AddField($"Symbol",
+                builder.AddField($"Train Symbol",
                 builder.AddDropdown(labels, selectedIndex, (int idx) =>
                 {
                     // Map: 0 = No change (null), 1 = None (""), 2+ = actual symbol names
@@ -287,10 +287,10 @@ namespace WaypointQueue
                 }));
             }
 
-            builder.AddField($"Do not stop", builder.AddToggle(() => waypoint.DoNotStop, delegate (bool value)
+            builder.AddField($"Stop at waypoint", builder.AddToggle(() => !waypoint.DoNotStop, delegate (bool value)
             {
-                waypoint.DoNotStop = value;
-                if (value)
+                waypoint.DoNotStop = !waypoint.DoNotStop;
+                if (waypoint.DoNotStop)
                 {
                     waypoint.SetTargetSpeedToOrdersMax();
                 }
@@ -299,7 +299,7 @@ namespace WaypointQueue
 
             if (waypoint.DoNotStop)
             {
-                builder.AddField($"Roll-thru speed", builder.HStack((UIPanelBuilder field) =>
+                builder.AddField($"Passing speed", builder.HStack((UIPanelBuilder field) =>
                 {
                     field.AddLabel($"{waypoint.WaypointTargetSpeed} mph")
                             .TextWrap(TextOverflowModes.Overflow, TextWrappingModes.NoWrap)
@@ -318,7 +318,7 @@ namespace WaypointQueue
                 }));
             }
 
-            if (waypoint.IsCoupling)
+            if (waypoint.IsCoupling && !waypoint.CurrentlyWaiting && !waypoint.DoNotStop)
             {
                 TrainController.Shared.TryGetCarForId(waypoint.CoupleToCarId, out Car couplingToCar);
                 builder.AddField($"Couple to ", builder.HStack(delegate (UIPanelBuilder field)
@@ -408,7 +408,7 @@ namespace WaypointQueue
                         AddBleedAirAndSetBrakeToggles(waypoint, builder, onWaypointChange);
                     }
 
-                    var takeActiveCutField = builder.AddField($"Take active cut", builder.AddToggle(() => waypoint.TakeUncoupledCarsAsActiveCut, delegate (bool value)
+                    var takeActiveCutField = builder.AddField($"Make uncoupled cars active", builder.AddToggle(() => waypoint.TakeUncoupledCarsAsActiveCut, delegate (bool value)
                     {
                         waypoint.TakeUncoupledCarsAsActiveCut = value;
                         onWaypointChange(waypoint);
@@ -416,16 +416,16 @@ namespace WaypointQueue
 
                     if (Loader.Settings.EnableTooltips)
                     {
-                        takeActiveCutField.Tooltip("Take active cut", "If this is active, the number of cars to uncouple will still be part of the active train. " +
+                        takeActiveCutField.Tooltip("Make uncoupled cars active", "If this is active, the number of cars to uncouple will still be part of the active train. " +
                             "The rest of the train will be treated as an uncoupled cut which may bleed air and apply handbrakes. " +
                             "This is particularly useful for local freight switching." +
                             "\n\nA train of 10 cars arrives in Whittier. The 2 cars behind the locomotive need to be delivered. " +
-                            "By checking \"Take active cut\", you can order the engineer to travel to a waypoint, uncouple 4 cars including the locomotive and tender, and travel to another waypoint to the industry track to deliver the 2 cars, all while knowing that the rest of the local freight consist has handbrakes applied.");
+                            "By checking \"Make uncoupled cars active\", you can order the engineer to travel to a waypoint, uncouple 4 cars including the locomotive and tender, and travel to another waypoint to the industry track to deliver the 2 cars, all while knowing that the rest of the local freight consist has handbrakes applied.");
                     }
                 }
             }
 
-            if (waypoint.CanRefuelNearby && !waypoint.CurrentlyWaiting)
+            if (waypoint.CanRefuelNearby && !waypoint.CurrentlyWaiting && !waypoint.DoNotStop)
             {
                 builder.AddField($"Refuel {waypoint.RefuelLoadName}", builder.AddToggle(() => waypoint.WillRefuel, delegate (bool value)
                 {
@@ -434,7 +434,10 @@ namespace WaypointQueue
                 }));
             }
 
-            AddWaitingSection(waypoint, builder, onWaypointChange);
+            if (!waypoint.DoNotStop)
+            {
+                AddWaitingSection(waypoint, builder, onWaypointChange);
+            }
         }
 
         private void AddConnectAirAndReleaseBrakeToggles(ManagedWaypoint waypoint, UIPanelBuilder builder, Action<ManagedWaypoint> onWaypointChange)
