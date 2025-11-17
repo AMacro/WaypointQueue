@@ -4,6 +4,7 @@ using Model.Ops;
 using Newtonsoft.Json;
 using System;
 using Track;
+using UI.EngineControls;
 using UnityEngine;
 using WaypointQueue.UUM;
 
@@ -124,6 +125,7 @@ namespace WaypointQueue
         public int WaitForDurationMinutes { get; set; }
         public double WaitUntilGameTotalSeconds { get; set; }
         public bool DoNotStop { get; set; }
+        public int WaypointTargetSpeed { get; set; } = 0;
 
         public bool IsValid()
         {
@@ -172,6 +174,12 @@ namespace WaypointQueue
                 loc = default;
                 return false;
             }
+        }
+
+        public void SetTargetSpeedToOrdersMax()
+        {
+            AutoEngineerOrdersHelper ordersHelper = WaypointQueueController.Shared.GetOrdersHelper(Locomotive);
+            WaypointTargetSpeed = ordersHelper.Orders.MaxSpeedMph;
         }
 
         public void SetWaitUntilByMinutes(int inputMinutesAfterMidnight, out GameDateTime waitUntilTime)

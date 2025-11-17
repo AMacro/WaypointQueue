@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using UI.EngineControls;
+using UnityEngine;
 using WaypointQueue.UUM;
 using static Model.AI.AutoEngineer;
 
@@ -15,7 +16,7 @@ namespace WaypointQueue
     {
         [HarmonyPostfix]
         [HarmonyPatch("UpdateTargets")]
-        static void UpdateTargetsPostfix(AutoEngineerPlanner __instance, ref AutoEngineer ____engineer)
+        static void UpdateTargetsPostfix(AutoEngineerPlanner __instance, float direction, ref AutoEngineer ____engineer)
         {
             try
             {
@@ -42,7 +43,7 @@ namespace WaypointQueue
 
                 LocoWaypointState waypointState = WaypointQueueController.Shared.GetLocoWaypointState(loco);
 
-                if (waypointState == null || !waypointState.HasAnyWaypoints())
+                if (waypointState == null || !waypointState.HasAnyWaypoints() || waypointState.UnresolvedWaypoint == null)
                 {
                     Loader.LogDebug($"Update targets {loco.Ident} has no managed waypoints");
                     return;
@@ -69,13 +70,19 @@ namespace WaypointQueue
 
                 List<Targets.Target> updatedTargets = [.. targets.AllTargets];
 
+                float maxSafeSpeed = Mathf.Abs(targets.MaxSpeedMph);
+                float targetSpeed = waypointState.UnresolvedWaypoint.WaypointTargetSpeed;
+                float speedToSet = Mathf.Clamp(targetSpeed, 0, maxSafeSpeed);
+                float signedSpeedToSet = speedToSet * Mathf.Sign(direction);
+
                 if (updatedTargets != null && updatedTargets.Count > 0)
                 {
                     int indexOfWaypoint = updatedTargets.FindIndex(t => t.Reason == "Running to waypoint" || t.Reason == "At waypoint");
                     if (indexOfWaypoint != -1)
                     {
+                        Loader.LogDebug($"Setting target speed to {signedSpeedToSet}");
                         Targets.Target t = updatedTargets[indexOfWaypoint];
-                        updatedTargets[indexOfWaypoint] = new Targets.Target(targets.MaxSpeedMph, t.Distance, t.Reason);
+                        updatedTargets[indexOfWaypoint] = new Targets.Target(signedSpeedToSet, t.Distance, t.Reason);
                     }
                     else
                     {

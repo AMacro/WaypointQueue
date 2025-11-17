@@ -290,12 +290,32 @@ namespace WaypointQueue
             builder.AddField($"Do not stop", builder.AddToggle(() => waypoint.DoNotStop, delegate (bool value)
             {
                 waypoint.DoNotStop = value;
+                if (value)
+                {
+                    waypoint.SetTargetSpeedToOrdersMax();
+                }
                 onWaypointChange(waypoint);
             }));
 
             if (waypoint.DoNotStop)
             {
-                return;
+                builder.AddField($"Roll-thru speed", builder.HStack((UIPanelBuilder field) =>
+                {
+                    field.AddLabel($"{waypoint.WaypointTargetSpeed} mph")
+                            .TextWrap(TextOverflowModes.Overflow, TextWrappingModes.NoWrap)
+                            .Width(100f);
+                    field.AddButtonCompact("-", delegate
+                    {
+                        int result = Mathf.Max(waypoint.WaypointTargetSpeed - GetOffsetAmount(), 0);
+                        waypoint.WaypointTargetSpeed = result;
+                        onWaypointChange(waypoint);
+                    }).Disable(waypoint.WaypointTargetSpeed <= 0).Width(24f);
+                    field.AddButtonCompact("+", delegate
+                    {
+                        waypoint.WaypointTargetSpeed += GetOffsetAmount();
+                        onWaypointChange(waypoint);
+                    }).Width(24f);
+                }));
             }
 
             if (waypoint.IsCoupling)
